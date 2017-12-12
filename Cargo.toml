@@ -3,6 +3,10 @@ name = "guile"
 version = "0.1.0"
 authors = ["Javier Pollak <javi.po.123@gmail.com>"]
 
+description = "Safe high-level rust bindings to the GNU Guile library"
+
+license = "MIT"
+
 [dependencies]
 libc = "0.2"
 
