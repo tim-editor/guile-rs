@@ -1,5 +1,5 @@
 [package]
-name = "guile"
+name = "guile-rs"
 version = "0.1.0"
 authors = ["Javier Pollak <javi.po.123@gmail.com>"]
 
