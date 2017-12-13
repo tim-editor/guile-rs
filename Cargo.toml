@@ -10,6 +10,6 @@ license = "MIT"
 [dependencies]
 libc = "0.2"
 
-[dependencies.guile-sys]
-path = "guile-sys"
+[dependencies.guile-rs-sys]
+path = "guile-rs-sys"
 version = "0.1.0"

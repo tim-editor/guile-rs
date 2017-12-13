@@ -1,4 +1,4 @@
-extern crate guile_sys;
+extern crate guile_rs_sys;
 extern crate libc;
 
 pub mod scm;

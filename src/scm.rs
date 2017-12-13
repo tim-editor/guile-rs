@@ -26,9 +26,9 @@
 //! ```
 
 
-extern crate guile_sys;
+extern crate guile_rs_sys;
 
-use self::guile_sys::*;
+use self::guile_rs_sys::*;
 use std::ffi::CString;
 use std::marker::PhantomData;
 use std::ptr;

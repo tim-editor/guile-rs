@@ -1,7 +1,7 @@
-extern crate guile_sys;
+extern crate guile_rs_sys;
 extern crate libc;
 
-use self::guile_sys::*;
+use self::guile_rs_sys::*;
 use std::ptr;
 use std::ffi::CString;
 use std::mem::{transmute};
