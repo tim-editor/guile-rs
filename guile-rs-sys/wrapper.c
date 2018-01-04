@@ -24,6 +24,12 @@ gen_macro_proxy_2(bool, scm_is_eq, SCM, SCM);
 gen_macro_proxy(bool, scm_is_false, SCM);
 gen_macro_proxy(bool, scm_is_true, SCM);
 
+gen_macro_proxy(int, scm_is_symbol, SCM);
+
+gen_macro_proxy(int, scm_is_pair, SCM);
+gen_macro_proxy(SCM, scm_car, SCM);
+gen_macro_proxy(SCM, scm_cdr, SCM);
+
 gen_macro_proxy_0(SCM, SCM_BOOL_F);
 gen_macro_proxy_0(SCM, SCM_BOOL_T);
 
