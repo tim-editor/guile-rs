@@ -8,7 +8,9 @@ extern crate lazy_static;
 #[macro_use]
 mod utils;
 
+#[macro_use]
 pub mod scm;
+#[macro_use]
 pub mod interp;
 
 pub use scm::{Scm, UnspecifiedSpec, NumericSpec, BoolSpec, StringSpec, IntSpec, TryAs};
@@ -16,24 +18,28 @@ pub use interp::Guile;
 
 
 #[cfg(test)]
+#[allow(unused_imports)]
 mod tests {
 
-    pub use scm::{
-        Scm,
-        TypeSpec,
-        UnspecifiedSpec,
-        ForeignTypeSpec,
-        ForeignObjectSpec,
-        ForeignType,
-        NumericSpec,
-        BoolSpec,
-        StringSpec,
-        IntSpec,
-        TryAs
-    };
+    // pub use scm::{
+    //     Scm,
+    //     TypeSpec,
+    //     UnspecifiedSpec,
+    //     ForeignTypeSpec,
+    //     ForeignObjectSpec,
+    //     ForeignType,
+    //     NumericSpec,
+    //     BoolSpec,
+    //     StringSpec,
+    //     SymbolSpec,
+    //     IntSpec,
+    //     TryAs
+    // };
+    pub use scm::*;
     pub use interp::Guile;
 
     use std::thread;
+    use std::marker::PhantomData;
 
     #[test]
     pub fn guile_test() {
@@ -102,24 +108,44 @@ mod tests {
             assert!(r.oneplus() == Scm::from(10));
             assert!(r == Scm::from(9));
 
+            assert!(Guile::call_with_catch("test".into(), |_| {
+                scm_eval!{ (throw 'test) }
+            }, ()).is_err());
+
+            assert!(Guile::call_with_catch_all(|_| {
+                scm_eval!{ (throw 'any) }
+            }, ()).is_err());
+
+            assert!(Guile::call_with_catch_all(|_| {
+                scm_eval!{ "test" }
+            }, ()).unwrap().equal_p(&Scm::<StringSpec>::from("test")).is_true());
+
+            #[allow(dead_code)]
             struct TestStruct {
                 val1: u8
             }
 
+
             lazy_static! {
                 static ref FTYPE: Scm<ForeignTypeSpec> = {
                     Guile::call_with_guile(|_| {
-                        Scm::new_type(/* args here... */)
+                        Scm::new_type(&"Test".into(), &vec![Scm::<StringSpec>::from("val1")].into(), type_list![TestStruct])
                     }, ())
                 };
+                static ref FSLOTS: Box<TypeList> = type_list![TestStruct];
             }
 
             struct TestType { }
             impl ForeignType for TestType {
                 type Struct = TestStruct;
                 fn get_type<'a>() -> &'a Scm<ForeignTypeSpec> { &FTYPE }
+                fn get_slot_types() -> Box<TypeList> {
+                    // Box clone clones the boxes contents
+                    FSLOTS.clone()
+                }
                 fn as_struct_mut<'a>() -> &'a mut Self::Struct {
-                    &mut TestStruct { val1: 7 }
+                    unimplemented!()
+                    // &mut TestStruct { val1: 7 }
                 }
                 fn as_struct<'a>() -> &'a Self::Struct {
                     // This should actually pull it from the SCM data...
@@ -131,8 +157,9 @@ mod tests {
 
             type TestTypeSpec = ForeignObjectSpec<TestType>;
 
-            let st: Scm<TestTypeSpec>
-                = Scm::from_struct(TestStruct { val1: 21 });
+            // NOTE: this commented test makes no sense anymore
+            // let st: Scm<TestTypeSpec>
+            //     = Scm::from_struct(TestStruct { val1: 21 });
 
 
         }, ());

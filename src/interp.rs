@@ -7,7 +7,18 @@ use std::ffi::CString;
 use std::mem::{transmute};
 
 use scm::Scm;
-use scm::{UnspecifiedSpec};
+use scm::{UnspecifiedSpec, TypeSpec, SymbolSpec, ListSpec};
+
+#[macro_export]
+macro_rules! scm_eval {
+    {$($tts:tt)*} => {
+        {
+            $crate::interp::Guile::eval(stringify!(
+                $($tts)*
+            ))
+        }
+    }
+}
 
 pub struct Guile {
 }
@@ -32,6 +43,62 @@ impl Guile {
             // read = very unsafe!
             ptr::read(transmute::<*mut libc::c_void, *mut R>(ret))
         }
+    }
+
+    unsafe extern "C" fn catch_handler(data: *mut libc::c_void, key: SCM, args: SCM) -> SCM {
+        let data: *mut (bool, SCM, SCM) = transmute(data);
+        (*data).0 = true;
+        (*data).1 = key;
+        (*data).2 = args;
+        // let flag: *mut bool = transmute::<*mut libc::c_void, *mut bool>(data);
+        // *flag = true;
+
+        gu_SCM_UNDEFINED()
+    }
+
+    unsafe extern "C" fn caught_body<F: FnOnce(A)->Scm<TS>, A, TS: TypeSpec>(data: *mut libc::c_void) -> SCM {
+        let data: (F, A) = ptr::read(transmute(data));
+        let (fun, args) = data;
+
+        (fun)(args).into_raw()
+    }
+
+    fn _call_with_catch<TS: TypeSpec, RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>
+        (key: Scm<TS>, body: F, body_args: A) -> Result<Scm<RT>, (Scm<SymbolSpec>, Scm<ListSpec>)> {
+            assert!(key.is_true() || key.is_symbol());
+
+            unsafe {
+                let body_args_pt: *mut (F, A) = &mut (body, body_args);
+                let body_args_pt = body_args_pt as *mut libc::c_void;
+
+                let mut err_data: (bool, SCM, SCM) = (false, gu_SCM_UNDEFINED(), gu_SCM_UNDEFINED());
+                let err_data_ptr: *mut (bool, SCM, SCM) = &mut err_data;
+                let err_data_ptr: *mut libc::c_void = transmute(err_data_ptr);
+
+                let ret: SCM = scm_internal_catch(key.data,
+                                                  Some(Self::caught_body::<F, A, RT>), // lol
+                                                  body_args_pt,
+                                                  Some(Self::catch_handler),
+                                                  err_data_ptr);
+                if err_data.0 {
+                    // NOTE: not sure if always these types...
+                    // instead of assuming, we check before rewraping for now
+                    // NOTE: not sure if taking the key and args out of the scope of the handler is
+                    // a good idea...
+                    Err((Scm::<UnspecifiedSpec>::from_raw(err_data.1).into_symbol().unwrap(),
+                         Scm::<UnspecifiedSpec>::from_raw(err_data.2).into_list().unwrap()))
+                } else {
+                    Ok(Scm::<RT>::_from_raw(ret))
+                }
+            }
+    }
+
+    pub fn call_with_catch<RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>(key: Scm<SymbolSpec>, body: F, body_args: A) -> Result<Scm<RT>, (Scm<SymbolSpec>, Scm<ListSpec>)> {
+        Self::_call_with_catch(key, body, body_args)
+    }
+
+    pub fn call_with_catch_all<RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>(body: F, body_args: A) -> Result<Scm<RT>, (Scm<SymbolSpec>, Scm<ListSpec>)> {
+        Self::_call_with_catch(Scm::true_c(), body, body_args)
     }
 
     pub fn eval(s: &str) -> Scm<UnspecifiedSpec> {

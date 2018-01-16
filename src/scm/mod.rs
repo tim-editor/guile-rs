@@ -23,7 +23,7 @@
  //!
  //! assert!(Scm::from(rr) == r);
  //! ```
- macro_rules! guile_defs {
+ # [ allow (unused_macros) ] macro_rules! guile_defs {
 {
 $ ($ e : tt) *
 } => {
@@ -40,73 +40,80 @@ use self :: guile_rs_sys :: *;
 use std :: ffi :: CString;
 use std :: marker :: PhantomData;
 use std :: ptr;
-use std :: cmp :: Ordering;
-use std :: ops :: {
-Add , Sub , Mul , Div
+use std :: ops :: Not;
+use std :: mem :: {
+transmute , forget
 };
-use std :: ops :: {
-BitAnd , BitOr , BitXor , Not
-};
+use std :: collections :: VecDeque;
+use libc;
 mod numeric;
 pub trait TypeSpec {
 } pub trait Numeric : TypeSpec {
-} pub struct UnspecifiedSpec;
+} # [ derive (Debug) ] pub struct UnspecifiedSpec;
 impl TypeSpec for UnspecifiedSpec {
-} pub struct BoolSpec;
+} # [ derive (Debug) ] pub struct BoolSpec;
 impl TypeSpec for BoolSpec {
 } /// See [spec implementation](struct.Scm.html#impl-4)
- pub struct NumericSpec;
+ # [ derive (Debug) ] pub struct NumericSpec;
 impl TypeSpec for NumericSpec {
 } impl Numeric for NumericSpec {
 } /// See [spec implementation](struct.Scm.html#impl-5)
- pub struct IntSpec;
+ # [ derive (Debug) ] pub struct IntSpec;
 impl TypeSpec for IntSpec {
 } impl Numeric for IntSpec {
-} pub struct RationalSpec;
+} # [ derive (Debug) ] pub struct RationalSpec;
 impl TypeSpec for RationalSpec {
 } impl Numeric for RationalSpec {
-} pub struct RealSpec;
+} # [ derive (Debug) ] pub struct RealSpec;
 impl TypeSpec for RealSpec {
 } impl Numeric for RealSpec {
-} pub struct ComplexSpec;
+} # [ derive (Debug) ] pub struct ComplexSpec;
 impl TypeSpec for ComplexSpec {
 } impl Numeric for ComplexSpec {
-} pub struct StringSpec;
+} # [ derive (Debug) ] pub struct StringSpec;
 impl TypeSpec for StringSpec {
-} pub struct SymbolSpec;
+} # [ derive (Debug) ] pub struct SymbolSpec;
 impl TypeSpec for SymbolSpec {
-} pub struct PairSpec;
+} # [ derive (Debug) ] pub struct PairSpec;
 impl TypeSpec for PairSpec {
-} pub struct ListSpec;
+} # [ derive (Debug) ] pub struct ListSpec;
 impl TypeSpec for ListSpec {
-} pub struct HashTableSpec;
+} # [ derive (Debug) ] pub struct HashTableSpec;
 impl TypeSpec for HashTableSpec {
-} pub struct HashQTableSpec;
+} # [ derive (Debug) ] pub struct HashQTableSpec;
 impl TypeSpec for HashQTableSpec {
-} pub struct HashVTableSpec;
+} # [ derive (Debug) ] pub struct HashVTableSpec;
 impl TypeSpec for HashVTableSpec {
-} pub struct HashXTableSpec;
+} # [ derive (Debug) ] pub struct HashXTableSpec;
 impl TypeSpec for HashXTableSpec {
-} pub struct ForeignTypeSpec;
+} # [ derive (Debug) ] pub struct ForeignTypeSpec;
 impl TypeSpec for ForeignTypeSpec {
 } pub trait ForeignType {
 type Struct;
 fn get_type < 'a > () -> & 'a Scm < ForeignTypeSpec >;
-fn get_struct () -> Self :: Struct ;
-} pub struct ForeignObjectSpec < FT : ForeignType > {
+fn get_slot_types () -> Box < TypeList >;
+fn as_struct < 'a > () -> & 'a Self :: Struct;
+fn as_struct_mut < 'a > () -> & 'a mut Self :: Struct ;
+} # [ derive (Debug) ] pub struct ForeignObjectSpec < FT : ForeignType > {
 type_ : PhantomData < FT >
 } impl < FT : ForeignType > TypeSpec for ForeignObjectSpec < FT > {
-} pub struct Scm < TS : TypeSpec > {
-data : SCM , spec : PhantomData < TS >
+} # [ derive (Clone , Debug) ] pub struct Scm < TS : TypeSpec > {
+pub (crate) data : SCM , spec : PhantomData < TS >
 } unsafe impl < TS : TypeSpec > Send for Scm < TS > {
 } unsafe impl < TS : TypeSpec > Sync for Scm < TS > {
 } impl < TS : TypeSpec > Scm < TS > {
-fn _from_raw (data : SCM) -> Scm < TS > {
+# [ inline ] pub (crate) fn _from_raw (data : SCM) -> Scm < TS > {
 Scm {
 data , spec : PhantomData
 }
-} pub fn from_raw (data : SCM) -> Scm < UnspecifiedSpec > {
+} # [ inline ] pub fn from_raw (data : SCM) -> Scm < UnspecifiedSpec > {
 Scm :: _from_raw (data)
+} # [ inline ] pub unsafe fn into_raw (self) -> SCM {
+self . data
+} fn into_type < S : TypeSpec > (self) -> Scm < S > {
+Scm :: _from_raw (self . data)
+} # [ inline ] pub fn into_unspecified (self) -> Scm < UnspecifiedSpec > {
+Scm :: into_type (self)
 } # [ inline ] pub fn as_bits (& self) -> scm_t_bits {
 unsafe {
 gu_SCM_UNPACK (self . data)
@@ -154,17 +161,114 @@ unsafe {
 gu_scm_is_eq (self . data , other . data)
 }
 } is_thing_p! (equal_p (other : OS < TypeSpec >) => scm_equal_p) ;
+} /// A binary list of types known at compile time
+ /// `Box<TypeList>` should always be built from the `type_list!()` macro!
+ pub trait TypeList : Send + Sync {
+/// Drop the node's contents
+ ///
+ /// IMPORTANT: length of `v` should be equal to length of the ndoe
+ unsafe fn consume_node (& self , v : VecDeque < * mut libc :: c_void >);
+/// Get the length of the node
+ /// 0 if node is a Nil
+ fn len (& self) -> usize;
+fn cloned (& self) -> Box < TypeList > ;
+} impl Clone for Box < TypeList > {
+fn clone (& self) -> Self {
+self . cloned ()
+}
+} /// A Type element from a `TypeList`
+ pub trait TypeElem : Send + Sync {
+unsafe fn consume (& self , v : * mut libc :: c_void);
+fn cloned (& self) -> Box < TypeElem > ;
+} impl Clone for Box < TypeElem > {
+fn clone (& self) -> Self {
+self . cloned ()
+}
+} # [ derive (Clone) ] /// An Item in the list representing the type at that position
+ pub struct TypeItem < T : 'static + Send + Sync > (pub PhantomData < T >);
+impl < T : 'static + Send + Sync > TypeElem for TypeItem < T > {
+/// Properly drop the variable
+ ///
+ /// IMPORTANT: the value of the `v` parameter should be a raw pointer from a `Box<T>`
+ /// where `T` is the TypeItem's `T`. (check code for clearer view of functionality)
+ unsafe fn consume (& self , v : * mut libc :: c_void) {
+let v : Box < T > = Box :: from_raw (transmute (v));
+drop (v) ;
+} fn cloned (& self) -> Box < TypeElem > {
+Box :: new (TypeItem :: < T > (PhantomData))
+}
+} # [ derive (Clone) ] /// Marks end of a TyepeList
+ pub struct Nil {
+} impl TypeList for Nil {
+unsafe fn consume_node (& self , v : VecDeque < * mut libc :: c_void >) {
+assert_eq! (v . len () , 0) ;
+} fn len (& self) -> usize {
+0
+} fn cloned (& self) -> Box < TypeList > {
+Box :: new (self . clone ())
+}
+} # [ derive (Clone) ] /// A node of the binary spine that makes the TypeList
+ pub struct TypePair (pub Box < TypeElem > , pub Box < TypeList >);
+impl TypeList for TypePair {
+unsafe fn consume_node (& self , mut v : VecDeque < * mut libc :: c_void >) {
+assert_eq! (v . len () , self . len ());
+self . 1 . consume_node (v . split_off (1));
+assert_eq! (v . len () , 1);
+self . 0 . consume (v [ 0 ]) ;
+} fn len (& self) -> usize {
+1 + self . 1 . len ()
+} fn cloned (& self) -> Box < TypeList > {
+Box :: new (self . clone ())
+}
+} /// Initialize a `Box<TypeList>`
+ # [ macro_export ] macro_rules! type_list {
+[ $ head : ty , $ ($ tail : ty) ,* ] => {
+{
+Box :: new (TypePair (Box :: new (TypeItem ::<$ head > (PhantomData)) , type_list! [ $ ($ tail) ,* ]))
+}
+};
+[ $ head : ty ] => {
+{
+type_list! [ $ head , ]
+}
+};
+[ ] => {
+{
+Box :: new (Nil {
+})
+}
+} ;
 } impl Scm < ForeignTypeSpec > {
-pub fn new_type () -> Self {
-Scm :: _from_raw (ptr :: null_mut ())
+unsafe extern "C" fn finalizer (obj : SCM) {
+let slot_types_r : * mut Box < TypeList > = transmute (scm_foreign_object_ref (obj , 0));
+let slot_types : Box < TypeList > = ptr :: read (slot_types_r);
+let mut vals = VecDeque :: new ();
+for i in 1 .. slot_types . len () + 1 - 1 {
+let slot_c : * mut libc :: c_void = scm_foreign_object_ref (obj , i);
+vals . push_back (slot_c) ;
+} slot_types . consume_node (vals);
+forget (slot_types);
+let slot_types_r : Box < Box < TypeList > > = Box :: from_raw (slot_types_r);
+drop (slot_types_r) ;
+} pub fn new_type (name : & Scm < StringSpec > , slot_names : & Scm < ListSpec > , slot_types : Box < TypeList >) -> Self {
+let slot_types : Box < Box < TypeList > > = Box :: new (slot_types);
+let slot_types_r : * mut Box < TypeList > = Box :: into_raw (slot_types);
+let slot_names : Scm < ListSpec > = Scm :: cons (& Scm :: < StringSpec > :: from ("types") , & slot_names) . into_list () . unwrap ();
+Scm :: _from_raw (unsafe {
+scm_make_foreign_object_type (name . data , slot_names . data , Some (Scm :: finalizer))
+})
 }
 } impl < FT : ForeignType > Scm < ForeignObjectSpec < FT > > {
 pub fn from_struct (strct : FT :: Struct) -> Self {
-Scm :: _from_raw (ptr :: null_mut ())
+unimplemented! ()
 } pub fn get_type < 'a > () -> & 'a Scm < ForeignTypeSpec > {
 FT :: get_type ()
-} pub fn get_struct () -> FT :: Struct {
-FT :: get_struct ()
+} pub fn get_slot_types () -> Box < TypeList > {
+FT :: get_slot_types ()
+} pub fn as_struct_mut < 'a > () -> & 'a mut FT :: Struct {
+FT :: as_struct_mut ()
+} pub fn as_struct < 'a > () -> & 'a FT :: Struct {
+FT :: as_struct ()
 }
 } impl < N : Numeric > From < Scm < N > > for Scm < StringSpec > {
 fn from (numeric : Scm < N >) -> Scm < StringSpec > {
@@ -178,9 +282,7 @@ scm_number_to_string (numeric . data , ptr :: null_mut ())
 /// attemp to get `&self` as type `T`
  fn try_as (& self) -> Result < T , E > ;
 } impl Scm < UnspecifiedSpec > {
-fn into_type < S : TypeSpec > (self) -> Scm < S > {
-Scm :: _from_raw (self . data)
-} into_type! (into_bool , is_bool , BoolSpec);
+into_type! (into_bool , is_bool , BoolSpec);
 into_type! (into_string , is_string , StringSpec);
 into_type! (into_integer , is_integer , IntSpec);
 into_type! (into_symbol , is_symbol , SymbolSpec);
@@ -232,11 +334,15 @@ scm_string_to_symbol (self . data)
 }
 });
 impl < 'a > From < & 'a str > for Scm < StringSpec > {
-fn from (s : & 'a str) -> Scm < StringSpec > {
+# [ inline ] fn from (s : & 'a str) -> Scm < StringSpec > {
 Scm :: < StringSpec > :: from_str (s)
 }
+} impl From < String > for Scm < StringSpec > {
+# [ inline ] fn from (s : String) -> Scm < StringSpec > {
+Scm :: < StringSpec > :: from_str (& s)
+}
 } guile_impl! (impl Scm < SymbolSpec > {
-pub fn from_str < > (& self , a0 : & str) -> Scm < SymbolSpec > {
+pub fn from_str < > (a0 : & str) -> Scm < SymbolSpec > {
 Scm :: _from_raw (unsafe {
 scm_from_utf8_symbol (CString :: new (a0) . unwrap () . as_ptr ())
 })
@@ -246,7 +352,11 @@ scm_symbol_to_string (self . data)
 })
 }
 });
-guile_impl! (impl Scm < PairSpec > {
+impl < 'a > From < & 'a str > for Scm < SymbolSpec > {
+# [ inline ] fn from (s : & 'a str) -> Scm < SymbolSpec > {
+Scm :: < SymbolSpec > :: from_str (s)
+}
+} guile_impl! (impl Scm < PairSpec > {
 pub fn car < > (& self ,) -> Scm < UnspecifiedSpec > {
 Scm :: _from_raw (unsafe {
 gu_scm_car (self . data)
@@ -254,6 +364,10 @@ gu_scm_car (self . data)
 } pub fn cdr < > (& self ,) -> Scm < UnspecifiedSpec > {
 Scm :: _from_raw (unsafe {
 gu_scm_cdr (self . data)
+})
+} pub fn cons < A : TypeSpec , B : TypeSpec > (a0 : & Scm < A > , a1 : & Scm < B >) -> Scm < PairSpec > {
+Scm :: _from_raw (unsafe {
+gu_scm_cons (a0 . data , a1 . data)
 })
 } pub fn set_car < T : TypeSpec > (& self , a0 : Scm < T >) -> Scm < UnspecifiedSpec > {
 Scm :: _from_raw (unsafe {
@@ -263,9 +377,19 @@ scm_set_car_x (self . data , a0 . data)
 Scm :: _from_raw (unsafe {
 scm_set_cdr_x (self . data , a0 . data)
 })
-}
+} into_type! (into_list , is_list , ListSpec) ;
 });
-guile_impl! (impl Scm < ListSpec > {
+impl < TS : TypeSpec > From < Vec < Scm < TS > > > for Scm < ListSpec > {
+fn from (l : Vec < Scm < TS > >) -> Scm < ListSpec > {
+let mut l : Vec < SCM > = l . into_iter () . map (| e | e . data) . collect ();
+l . push (unsafe {
+gu_SCM_UNDEFINED ()
+});
+Scm :: _from_raw (unsafe {
+gu_scm_list_n (l . as_mut_ptr ())
+})
+}
+} guile_impl! (impl Scm < ListSpec > {
 pub fn length < > (& self ,) -> Scm < IntSpec > {
 Scm :: _from_raw (unsafe {
 scm_length (self . data)
@@ -286,7 +410,7 @@ scm_list_tail (self . data , a0 . data)
 Scm :: _from_raw (unsafe {
 scm_list_head (self . data , a0 . data)
 })
-}
+} into_type! (into_pair , is_pair , PairSpec) ;
 });
 guile_impl! (impl Scm < HashTableSpec > {
 pub fn new < > () -> Scm < HashTableSpec > {

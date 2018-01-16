@@ -29,27 +29,22 @@ gen_macro_proxy(int, scm_is_symbol, SCM);
 gen_macro_proxy(int, scm_is_pair, SCM);
 gen_macro_proxy(SCM, scm_car, SCM);
 gen_macro_proxy(SCM, scm_cdr, SCM);
+gen_macro_proxy_2(SCM, scm_cons, SCM, SCM);
 
 gen_macro_proxy_0(SCM, SCM_BOOL_F);
 gen_macro_proxy_0(SCM, SCM_BOOL_T);
+gen_macro_proxy_0(SCM, SCM_UNDEFINED);
 
-/* gen_macro_proxy(SCM, scm_from_intmax, scm_t_intmax); */
-/* gen_macro_proxy(SCM, scm_from_uintmax, scm_t_uintmax); */
+SCM gu_scm_list_n(SCM* elts) {
+    SCM answer = SCM_EOL;
+    SCM *pos = &answer;
 
-/* /1* /// <div rustbindgen hide></div> *1/ */
-/* static const SCM gu_SCM_BOOL_T = SCM_BOOL_T; */
-
-/* /1* /// <div rustbindgen hide></div> *1/ */
-/* static const SCM gu_SCM_BOOL_F = SCM_BOOL_F; */
-
-
-/* bool gu_scm_is_eq(SCM x, SCM y) { */
-/*     return scm_is_eq(x, y); */
-/* } */
-
-/* bool gu_scm_is_true(SCM x) { */
-/*     return scm_is_true(x); */
-/* } */
+    while (!SCM_UNBNDP(*elts)) {
+        *pos = scm_cons(*elts++, SCM_EOL);
+        pos = SCM_CDRLOC(*pos);
+    }
+    return answer;
+}
 
 int gu_scm_is_string(SCM);
 

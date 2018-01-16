@@ -2,11 +2,11 @@ extern crate guile_rs_sys;
 
 use scm::*;
 
-use self::guile_rs_sys::*;
+// use self::guile_rs_sys::*;
 use std::ptr;
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, Mul, Div};
-use std::ops::{BitAnd, BitOr, BitXor, Not};
+use std::ops::{BitAnd, BitOr, BitXor};
 
 impl<TS: Numeric> Scm<TS> {
     is_thing_p!(exact_p => scm_exact_p);
