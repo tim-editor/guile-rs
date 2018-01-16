@@ -173,6 +173,9 @@ mod tests {
 
     #[test]
     pub fn scope_test() {
+        // FIXME: if we run Guile::call_with_guile here, we get segfault...
+        // (invalid memory reference)
+        // let _ = Guile::call_with_guile(|_| { }, ());
     }
 }
 
