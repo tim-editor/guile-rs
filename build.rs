@@ -210,12 +210,12 @@ impl GuileDef {
                 CArgDef::Immediate(expr) => vec![expr],
                 CArgDef::Rest(raw) => {
                         let mut r = vec![];
-                        let all: HashSet<String> = self.args
+                        let all: Vec<String> = self.args
                             .iter()
                             .enumerate()
                             .filter(|&(_, e)| !e.is_self())
                             .map(|(i,_)| format!("a{}", i)).collect();
-                        for a in all.difference(&used_cargs) {
+                        for a in all.iter().filter(|&e| !used_cargs.contains(e)) {
                             if raw {
                                 r.push(syn::parse_str(a).unwrap());
                             } else {
