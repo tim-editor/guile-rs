@@ -16,7 +16,8 @@ use std::collections::HashSet;
 
 use syn::visit_mut;
 use syn::token::{Semi, Comma};
-use syn::synom::{SynomBuffer, Synom};
+use syn::synom::{Synom};
+use syn::buffer::TokenBuffer;
 use syn::punctuated::Punctuated;
 use quote::{ToTokens, Tokens};
 use proc_macro2::{TokenStream};
@@ -274,15 +275,15 @@ named!(parse_guile_impl -> TokenStream, do_parse!(
 ));
 
 struct MacroVisitor;
-impl visit_mut::VisitorMut for MacroVisitor {
+impl visit_mut::VisitMut for MacroVisitor {
     fn visit_macro_mut(&mut self, i: &mut syn::Macro) {
         if i.path == syn::Path::from("guile_impl") {
-            let sb = SynomBuffer::new(i.tts.clone().into());
+            let sb = TokenBuffer::new2(i.tts.clone().into());
             i.tts = parse_guile_impl(sb.begin()).expect("Expanding guile_impl macro").0;
 
 
         } else if i.path == syn::Path::from("guile_defs") {
-            let sb = SynomBuffer::new(i.tts.clone().into());
+            let sb = TokenBuffer::new2(i.tts.clone().into());
             let gdefs = parse_guile_defs(sb.begin()).expect("Expanding guile_defs macro").0;
 
             let mut mtokens = quote::Tokens::new();

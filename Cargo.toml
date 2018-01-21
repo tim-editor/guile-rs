@@ -16,8 +16,10 @@ path = "guile-rs-sys"
 # version = "0.1.0"
 
 [build-dependencies]
-syn = { git = "https://github.com/dtolnay/syn", features = ["full", "parsing", "visit_mut", "printing", "extra-traits", "clone-impls"] }
-quote = { git = 'https://github.com/dtolnay/quote' }
+syn = { version = "0.12", features = ["full", "parsing", "visit-mut", "printing", "extra-traits", "clone-impls"] }
+quote = "0.4"
+# syn = { git = "https://github.com/dtolnay/syn", features = ["full", "parsing", "visit_mut", "printing", "extra-traits", "clone-impls"] }
+# quote = { git = 'https://github.com/dtolnay/quote' }
 proc-macro2 = "*"
 regex = "0.2"
 # quote = "0.3"
