@@ -13,7 +13,8 @@ pub mod scm;
 #[macro_use]
 pub mod interp;
 
-pub use scm::{Scm, UnspecifiedSpec, NumericSpec, BoolSpec, StringSpec, IntSpec, TryAs};
+pub use scm::{Scm, Untyped, Numeric, Bool, Int, TryAs};
+pub use scm::String as ScmString;
 pub use interp::Guile;
 
 

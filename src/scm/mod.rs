@@ -2,7 +2,7 @@
  //!
  //! # Example
  //! ```rust,ignore
- //! let s: Scm<UnspecifiedSpec> = Guile::eval("\"test string...\"");
+ //! let s: Scm<Untyped> = Guile::eval("\"test string...\"");
  //! let s: Scm<StringSpec>      = s.into_string().unwrap();
  //! let s: String               = s.to_string();
  //! assert_eq!(s, "test string...");
@@ -36,42 +36,25 @@ $ ($ e : tt) *
 $ ($ e) *
 }
 } extern crate guile_rs_sys;
+mod untyped;
+mod bool;
+mod string;
+mod numeric;
+pub use self :: untyped :: Untyped;
+pub use self :: bool :: Bool;
+pub use self :: string :: String;
+pub use self :: numeric :: *;
 use self :: guile_rs_sys :: *;
 use std :: ffi :: CString;
 use std :: marker :: PhantomData;
 use std :: ptr;
-use std :: ops :: Not;
 use std :: mem :: {
 transmute , forget
 };
 use std :: collections :: VecDeque;
 use libc;
-mod numeric;
 pub trait TypeSpec {
-} pub trait Numeric : TypeSpec {
-} # [ derive (Debug) ] pub struct UnspecifiedSpec;
-impl TypeSpec for UnspecifiedSpec {
-} # [ derive (Debug) ] pub struct BoolSpec;
-impl TypeSpec for BoolSpec {
-} /// See [spec implementation](struct.Scm.html#impl-4)
- # [ derive (Debug) ] pub struct NumericSpec;
-impl TypeSpec for NumericSpec {
-} impl Numeric for NumericSpec {
-} /// See [spec implementation](struct.Scm.html#impl-5)
- # [ derive (Debug) ] pub struct IntSpec;
-impl TypeSpec for IntSpec {
-} impl Numeric for IntSpec {
-} # [ derive (Debug) ] pub struct RationalSpec;
-impl TypeSpec for RationalSpec {
-} impl Numeric for RationalSpec {
-} # [ derive (Debug) ] pub struct RealSpec;
-impl TypeSpec for RealSpec {
-} impl Numeric for RealSpec {
-} # [ derive (Debug) ] pub struct ComplexSpec;
-impl TypeSpec for ComplexSpec {
-} impl Numeric for ComplexSpec {
-} # [ derive (Debug) ] pub struct StringSpec;
-impl TypeSpec for StringSpec {
+} pub trait NumericSpec : TypeSpec {
 } # [ derive (Debug) ] pub struct SymbolSpec;
 impl TypeSpec for SymbolSpec {
 } # [ derive (Debug) ] pub struct PairSpec;
@@ -106,13 +89,13 @@ pub (crate) data : SCM , spec : PhantomData < TS >
 Scm {
 data , spec : PhantomData
 }
-} # [ inline ] pub fn from_raw (data : SCM) -> Scm < UnspecifiedSpec > {
+} # [ inline ] pub fn from_raw (data : SCM) -> Scm < Untyped > {
 Scm :: _from_raw (data)
 } # [ inline ] pub unsafe fn into_raw (self) -> SCM {
 self . data
 } fn into_type < S : TypeSpec > (self) -> Scm < S > {
 Scm :: _from_raw (self . data)
-} # [ inline ] pub fn into_unspecified (self) -> Scm < UnspecifiedSpec > {
+} # [ inline ] pub fn into_unspecified (self) -> Scm < Untyped > {
 Scm :: into_type (self)
 } # [ inline ] pub fn as_bits (& self) -> scm_t_bits {
 unsafe {
@@ -150,7 +133,7 @@ is_thing_p! (list_p => scm_list_p);
 is_thing_p! (hash_table_p => scm_hash_table_p);
 /// check for identity (`scm_eq_p`)
  /// scheme operation: `eq?`
- # [ inline ] pub fn eq_p < OS : TypeSpec > (& self , other : & Scm < OS >) -> Scm < BoolSpec > {
+ # [ inline ] pub fn eq_p < OS : TypeSpec > (& self , other : & Scm < OS >) -> Scm < Bool > {
 Scm :: _from_raw (unsafe {
 scm_eq_p (self . data , other . data)
 })
@@ -250,10 +233,10 @@ vals . push_back (slot_c) ;
 forget (slot_types);
 let slot_types_r : Box < Box < TypeList > > = Box :: from_raw (slot_types_r);
 drop (slot_types_r) ;
-} pub fn new_type (name : & Scm < StringSpec > , slot_names : & Scm < ListSpec > , slot_types : Box < TypeList >) -> Self {
+} pub fn new_type (name : & Scm < self :: String > , slot_names : & Scm < ListSpec > , slot_types : Box < TypeList >) -> Self {
 let slot_types : Box < Box < TypeList > > = Box :: new (slot_types);
 let slot_types_r : * mut Box < TypeList > = Box :: into_raw (slot_types);
-let slot_names : Scm < ListSpec > = Scm :: cons (& Scm :: < StringSpec > :: from ("types") , & slot_names) . into_list () . unwrap ();
+let slot_names : Scm < ListSpec > = Scm :: cons (& Scm :: < self :: String > :: from ("types") , & slot_names) . into_list () . unwrap ();
 Scm :: _from_raw (unsafe {
 scm_make_foreign_object_type (name . data , slot_names . data , Some (Scm :: finalizer))
 })
@@ -270,8 +253,8 @@ FT :: as_struct_mut ()
 } pub fn as_struct < 'a > () -> & 'a FT :: Struct {
 FT :: as_struct ()
 }
-} impl < N : Numeric > From < Scm < N > > for Scm < StringSpec > {
-fn from (numeric : Scm < N >) -> Scm < StringSpec > {
+} impl < N : NumericSpec > From < Scm < N > > for Scm < self :: String > {
+fn from (numeric : Scm < N >) -> Scm < self :: String > {
 Self {
 data : unsafe {
 scm_number_to_string (numeric . data , ptr :: null_mut ())
@@ -281,72 +264,12 @@ scm_number_to_string (numeric . data , ptr :: null_mut ())
 } pub trait TryAs < T , E > {
 /// attemp to get `&self` as type `T`
  fn try_as (& self) -> Result < T , E > ;
-} impl Scm < UnspecifiedSpec > {
-into_type! (into_bool , is_bool , BoolSpec);
-into_type! (into_string , is_string , StringSpec);
-into_type! (into_integer , is_integer , IntSpec);
-into_type! (into_symbol , is_symbol , SymbolSpec);
-into_type! (into_pair , is_pair , PairSpec);
-into_type! (into_list , is_list , ListSpec);
-into_type! (into_hash_table , is_hash_table , HashTableSpec);
-into_type! (into_hashq_table , is_hash_table , HashQTableSpec);
-into_type! (into_hashv_table , is_hash_table , HashVTableSpec);
-into_type! (into_hashx_table , is_hash_table , HashXTableSpec) ;
-} impl Scm < BoolSpec > {
-/// Return a true litteral Scm object
- # [ inline ] pub fn true_c () -> Scm < BoolSpec > {
-Scm :: _from_raw (unsafe {
-gu_SCM_BOOL_T ()
-})
-} /// Return a false litteral Scm object
- # [ inline ] pub fn false_c () -> Scm < BoolSpec > {
-Scm :: _from_raw (unsafe {
-gu_SCM_BOOL_F ()
-})
-} /// to rust boolean
- /// use is_true() for testing trueness
- pub fn to_bool (& self) -> bool {
-unsafe {
-scm_to_bool (self . data) == 1
-}
-}
-} impl Not for Scm < BoolSpec > {
-type Output = Scm < BoolSpec >;
-fn not (self) -> Scm < BoolSpec > {
-Scm :: _from_raw (unsafe {
-scm_not (self . data)
-})
-}
-} guile_impl! (impl Scm < StringSpec > {
-pub fn from_str < > (a0 : & str) -> Scm < StringSpec > {
-Scm :: _from_raw (unsafe {
-scm_from_utf8_string (CString :: new (a0) . unwrap () . as_ptr ())
-})
-} /// to utf8 string
- pub fn to_string (& self) -> String {
-unsafe {
-CString :: from_raw (scm_to_utf8_string (self . data)) . into_string () . unwrap ()
-}
-} pub fn into_symbol (self) -> Scm < SymbolSpec > {
-Scm :: _from_raw (unsafe {
-scm_string_to_symbol (self . data)
-})
-}
-});
-impl < 'a > From < & 'a str > for Scm < StringSpec > {
-# [ inline ] fn from (s : & 'a str) -> Scm < StringSpec > {
-Scm :: < StringSpec > :: from_str (s)
-}
-} impl From < String > for Scm < StringSpec > {
-# [ inline ] fn from (s : String) -> Scm < StringSpec > {
-Scm :: < StringSpec > :: from_str (& s)
-}
 } guile_impl! (impl Scm < SymbolSpec > {
 pub fn from_str < > (a0 : & str) -> Scm < SymbolSpec > {
 Scm :: _from_raw (unsafe {
 scm_from_utf8_symbol (CString :: new (a0) . unwrap () . as_ptr ())
 })
-} pub fn into_string < > (self) -> Scm < StringSpec > {
+} pub fn into_string < > (self) -> Scm < self :: String > {
 Scm :: _from_raw (unsafe {
 scm_symbol_to_string (self . data)
 })
@@ -357,11 +280,11 @@ impl < 'a > From < & 'a str > for Scm < SymbolSpec > {
 Scm :: < SymbolSpec > :: from_str (s)
 }
 } guile_impl! (impl Scm < PairSpec > {
-pub fn car < > (& self ,) -> Scm < UnspecifiedSpec > {
+pub fn car < > (& self ,) -> Scm < Untyped > {
 Scm :: _from_raw (unsafe {
 gu_scm_car (self . data)
 })
-} pub fn cdr < > (& self ,) -> Scm < UnspecifiedSpec > {
+} pub fn cdr < > (& self ,) -> Scm < Untyped > {
 Scm :: _from_raw (unsafe {
 gu_scm_cdr (self . data)
 })
@@ -369,11 +292,11 @@ gu_scm_cdr (self . data)
 Scm :: _from_raw (unsafe {
 gu_scm_cons (a0 . data , a1 . data)
 })
-} pub fn set_car < T : TypeSpec > (& self , a0 : Scm < T >) -> Scm < UnspecifiedSpec > {
+} pub fn set_car < T : TypeSpec > (& self , a0 : Scm < T >) -> Scm < Untyped > {
 Scm :: _from_raw (unsafe {
 scm_set_car_x (self . data , a0 . data)
 })
-} pub fn set_cdr < T : TypeSpec > (& self , a0 : Scm < T >) -> Scm < UnspecifiedSpec > {
+} pub fn set_cdr < T : TypeSpec > (& self , a0 : Scm < T >) -> Scm < Untyped > {
 Scm :: _from_raw (unsafe {
 scm_set_cdr_x (self . data , a0 . data)
 })
@@ -390,7 +313,7 @@ gu_scm_list_n (l . as_mut_ptr ())
 })
 }
 } guile_impl! (impl Scm < ListSpec > {
-pub fn length < > (& self ,) -> Scm < IntSpec > {
+pub fn length < > (& self ,) -> Scm < Int > {
 Scm :: _from_raw (unsafe {
 scm_length (self . data)
 })
@@ -398,15 +321,15 @@ scm_length (self . data)
 Scm :: _from_raw (unsafe {
 scm_last_pair (self . data)
 })
-} pub fn m_ref < > (& self , a0 : Scm < IntSpec >) -> Scm < UnspecifiedSpec > {
+} pub fn m_ref < > (& self , a0 : Scm < Int >) -> Scm < Untyped > {
 Scm :: _from_raw (unsafe {
 scm_list_ref (self . data , a0 . data)
 })
-} pub fn tail < > (& self , a0 : Scm < IntSpec >) -> Scm < ListSpec > {
+} pub fn tail < > (& self , a0 : Scm < Int >) -> Scm < ListSpec > {
 Scm :: _from_raw (unsafe {
 scm_list_tail (self . data , a0 . data)
 })
-} pub fn head < > (& self , a0 : Scm < IntSpec >) -> Scm < ListSpec > {
+} pub fn head < > (& self , a0 : Scm < Int >) -> Scm < ListSpec > {
 Scm :: _from_raw (unsafe {
 scm_list_head (self . data , a0 . data)
 })
@@ -425,7 +348,7 @@ scm_make_hash_table (Scm :: from (a0) . data)
 unsafe {
 scm_hash_clear_x (self . data)
 } ;
-} pub fn m_ref < KS : TypeSpec , DS : TypeSpec > (& self , a0 : Scm < KS > , a1 : Option < Scm < DS > >) -> Scm < UnspecifiedSpec > {
+} pub fn m_ref < KS : TypeSpec , DS : TypeSpec > (& self , a0 : Scm < KS > , a1 : Option < Scm < DS > >) -> Scm < Untyped > {
 Scm :: _from_raw (unsafe {
 scm_hash_ref (self . data , a0 . data , a1 . map_or (ptr :: null_mut () , | d | d . data))
 })

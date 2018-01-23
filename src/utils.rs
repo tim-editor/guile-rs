@@ -1,4 +1,3 @@
-
 macro_rules! into_type {
     ($tn:ident, $spec:ident) => (into_type!(into_$tn, is_$tn, $spec););
 
@@ -20,7 +19,7 @@ macro_rules! is_thing_p {
     ($fname:ident ($($an:ident: $tn:ident <$at:path>),*) => $cfunc:ident) => {
         // /// Retrun guile true value when is condition
         #[inline]
-        pub fn $fname<$($tn: $at),*>(&self, $($an: &Scm<$tn>),*) -> Scm<BoolSpec> {
+        pub fn $fname<$($tn: $at),*>(&self, $($an: &Scm<$tn>),*) -> Scm<Bool> {
             Scm::_from_raw(unsafe { $cfunc(self.data, $($an.data),*) })
         }
     };
@@ -52,6 +51,7 @@ macro_rules! is_thing_manual {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! scm_func {
     ($fname:ident ($($an:ident: $at:ty),*) -> $r:ty, $cfunc:ident) => {
         #[inline]
@@ -79,6 +79,7 @@ macro_rules! scm_func {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! simple_from {
     ($from:ty, $cfunc: ident, $to:ty) => {
         impl From<$from> for $to {
@@ -92,6 +93,7 @@ macro_rules! simple_from {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! simple_try_as {
     ($from:ty, $cfunc:ident, $to:ty) => {
         impl TryAs<$to, ()> for $from {

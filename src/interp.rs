@@ -7,7 +7,7 @@ use std::ffi::CString;
 use std::mem::{transmute};
 
 use scm::Scm;
-use scm::{UnspecifiedSpec, TypeSpec, SymbolSpec, ListSpec};
+use scm::{Untyped, TypeSpec, SymbolSpec, ListSpec};
 
 #[macro_export]
 macro_rules! scm_eval {
@@ -85,8 +85,8 @@ impl Guile {
                     // instead of assuming, we check before rewraping for now
                     // NOTE: not sure if taking the key and args out of the scope of the handler is
                     // a good idea...
-                    Err((Scm::<UnspecifiedSpec>::from_raw(err_data.1).into_symbol().unwrap(),
-                         Scm::<UnspecifiedSpec>::from_raw(err_data.2).into_list().unwrap()))
+                    Err((Scm::<Untyped>::from_raw(err_data.1).into_symbol().unwrap(),
+                         Scm::<Untyped>::from_raw(err_data.2).into_list().unwrap()))
                 } else {
                     Ok(Scm::<RT>::_from_raw(ret))
                 }
@@ -101,11 +101,10 @@ impl Guile {
         Self::_call_with_catch(Scm::true_c(), body, body_args)
     }
 
-    pub fn eval(s: &str) -> Scm<UnspecifiedSpec> {
+    pub fn eval(s: &str) -> Scm<Untyped> {
         let raw = unsafe {
             scm_c_eval_string(CString::new(s).unwrap().as_ptr())
         };
-        Scm::<UnspecifiedSpec>::from_raw(raw)
+        Scm::<Untyped>::from_raw(raw)
     }
 }
-
