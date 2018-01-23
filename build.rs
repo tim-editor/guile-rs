@@ -297,30 +297,36 @@ impl visit_mut::VisitMut for MacroVisitor {
 fn main() {
     // Cargo.toml is in project root
     let root = env::var("CARGO_MANIFEST_DIR").unwrap();
-    //let out_dir      = env::var("OUT_DIR").unwrap();
 
-    let dir = Path::new(&root).join("expanded");
-    let dir_entries = fs::read_dir(dir).unwrap();
+    fn procfiles<P: AsRef<Path>>(dir: P) {
+        let dir_entries = fs::read_dir(dir).unwrap();
 
-    for f in dir_entries {
+        for i in dir_entries {
 
-        let f    = f.unwrap();
-        let from = f.path();
+            let i = i.unwrap();
+            let path = i.path();
+            let ftype = i.file_type().unwrap();
 
-        match from.extension() {
-            Some(x) => if x != "rs" { continue }
-            None    => continue
+            if ftype.is_file() {
+
+                match path.extension() {
+
+                    Some(x) if x == "in" => {
+                        let to = path.with_extension("");
+                        fs::copy(&path, &to).unwrap();
+                        expand_macros(&to);
+                    }
+
+                    _ => continue
+                }
+
+            } else if ftype.is_dir() {
+                procfiles(path);
+            }
         }
-
-        let to = f.file_name().into_string().unwrap();
-        let to = to.replacen(".", "/", to.matches(".").count() - 1);
-        let to = Path::new(&root).join("src").join(&to);
-
-        eprintln!("{:?} {:?}", from, to);
-
-        fs::copy(&from, &to).unwrap();
-        expand_macros(&to);
     }
+
+    procfiles(Path::new(&root).join("src").join("scm"));
 }
 
 fn expand_macros(target: &Path) {
