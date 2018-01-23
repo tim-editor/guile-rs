@@ -295,25 +295,43 @@ impl visit_mut::VisitMut for MacroVisitor {
 }
 
 fn main() {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    // let out_dir      = env::var("OUT_DIR").unwrap();
+    // Cargo.toml is in project root
+    let root = env::var("CARGO_MANIFEST_DIR").unwrap();
+    //let out_dir      = env::var("OUT_DIR").unwrap();
 
-    let macro_targets = vec![
-        (Path::new(&manifest_dir).join("expanded/scm.mod.rs"), Path::new(&manifest_dir).join("src/scm/mod.rs")),
-        // add more files with macros to expand here...
-    ];
+    let dir = Path::new(&root).join("expanded");
+    let dir_entries = fs::read_dir(dir).unwrap();
 
-    for (from, to) in macro_targets {
+    for f in dir_entries {
+
+        let f    = f.unwrap();
+        let from = f.path();
+
+        match from.extension() {
+            Some(x) => if x != "rs" { continue }
+            None    => continue
+        }
+
+        let to = f.file_name().into_string().unwrap();
+        let to = to.replacen(".", "/", to.matches(".").count() - 1);
+        let to = Path::new(&root).join("src").join(&to);
+
+        eprintln!("{:?} {:?}", from, to);
+
         fs::copy(&from, &to).unwrap();
         expand_macros(&to);
-        // add external macros to expands here...
     }
 }
 
 fn expand_macros(target: &Path) {
     let mut source = String::new();
     File::open(target).unwrap().read_to_string(&mut source).unwrap();
-    let mut file: syn::File = syn::parse_file(&source).expect("Parsing source");
+    //let mut file: syn::File = syn::parse_file(&source).expect("Parsing source");
+    let file = syn::parse_file(&source);
+    let mut file = match file {
+        Ok(f)  => f,
+        Err(_) => return
+    };
 
     visit_mut::visit_file_mut(&mut MacroVisitor{}, &mut file);
 
@@ -333,4 +351,3 @@ fn expand_macros(target: &Path) {
         ).unwrap();
 
 }
-
