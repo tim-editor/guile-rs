@@ -13,3 +13,7 @@ Cargo.lock
 # Files which require preprocessing
 /src/scm/string.rs
 /src/scm/mod.rs
+/src/scm/list.rs
+/src/scm/hashtable.rs
+/src/scm/pair.rs
+/src/scm/symbol.rs

@@ -3,7 +3,7 @@ use std;
 use std::ffi::CString;
 use scm::Scm;
 use scm::TypeSpec;
-use scm::SymbolSpec;
+use scm::Symbol;
 
 use guile_rs_sys::*;
 
@@ -40,7 +40,7 @@ guile_impl!(Scm<ScmString> {
         }
     }
 
-    pub fn into_symbol(self) -> Scm<SymbolSpec> {
+    pub fn into_symbol(self) -> Scm<Symbol> {
         Scm::_from_raw(unsafe { scm_string_to_symbol(self.data) })
     }
 });

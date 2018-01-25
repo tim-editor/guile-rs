@@ -7,7 +7,7 @@ use std::ffi::CString;
 use std::mem::{transmute};
 
 use scm::Scm;
-use scm::{Untyped, TypeSpec, SymbolSpec, ListSpec};
+use scm::{Untyped, TypeSpec, Symbol, List};
 
 #[macro_export]
 macro_rules! scm_eval {
@@ -64,7 +64,7 @@ impl Guile {
     }
 
     fn _call_with_catch<TS: TypeSpec, RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>
-        (key: Scm<TS>, body: F, body_args: A) -> Result<Scm<RT>, (Scm<SymbolSpec>, Scm<ListSpec>)> {
+        (key: Scm<TS>, body: F, body_args: A) -> Result<Scm<RT>, (Scm<Symbol>, Scm<List>)> {
             assert!(key.is_true() || key.is_symbol());
 
             unsafe {
@@ -93,11 +93,11 @@ impl Guile {
             }
     }
 
-    pub fn call_with_catch<RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>(key: Scm<SymbolSpec>, body: F, body_args: A) -> Result<Scm<RT>, (Scm<SymbolSpec>, Scm<ListSpec>)> {
+    pub fn call_with_catch<RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>(key: Scm<Symbol>, body: F, body_args: A) -> Result<Scm<RT>, (Scm<Symbol>, Scm<List>)> {
         Self::_call_with_catch(key, body, body_args)
     }
 
-    pub fn call_with_catch_all<RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>(body: F, body_args: A) -> Result<Scm<RT>, (Scm<SymbolSpec>, Scm<ListSpec>)> {
+    pub fn call_with_catch_all<RT: TypeSpec, F: FnOnce(A)->Scm<RT>, A>(body: F, body_args: A) -> Result<Scm<RT>, (Scm<Symbol>, Scm<List>)> {
         Self::_call_with_catch(Scm::true_c(), body, body_args)
     }
 
