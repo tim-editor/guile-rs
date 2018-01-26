@@ -13,7 +13,9 @@ pub mod scm;
 #[macro_use]
 pub mod interp;
 
-pub use scm::{Scm, Untyped, Numeric, Bool, Int, TryAs};
+pub use scm::{Scm, TryAs};
+pub use scm::ForeignSpec;
+pub use scm::{Untyped, Numeric, Bool, Int, Foreign};
 pub use scm::String as ScmString;
 pub use interp::Guile;
 
@@ -25,18 +27,19 @@ mod tests {
     // pub use scm::{
     //     Scm,
     //     TypeSpec,
-    //     UnspecifiedSpec,
-    //     ForeignTypeSpec,
-    //     ForeignObjectSpec,
-    //     ForeignType,
-    //     NumericSpec,
-    //     BoolSpec,
-    //     StringSpec,
-    //     SymbolSpec,
-    //     IntSpec,
+    //     Untyped,
+    //     Foreign,
+    //     ForeignObject,
+    //     ForeignSpec,
+    //     Numeric,
+    //     Bool,
+    //     ScmString,
+    //     Symbol,
+    //     Int,
     //     TryAs
     // };
     pub use scm::*;
+    pub use std::string::String;
     pub use interp::Guile;
 
     use std::thread;
@@ -48,31 +51,31 @@ mod tests {
             // Guile::eval("(display \"testing...\")");
 
             // DSL using stringify!() macro with eval
-            let s1: Scm<UnspecifiedSpec> = Guile::eval(stringify!(
+            let s1: Scm<Untyped> = Guile::eval(stringify!(
 
                     (display "test display...\n")
                     "test string..."
 
                 ));
-            let s1: Scm<StringSpec>      = s1.into_string().unwrap();
-            let s: String                = s1.to_string();
+            let s1: Scm<ScmString> = s1.into_string().unwrap();
+            let s: String = s1.to_string();
             assert_eq!(s, "test string...");
 
-            let s2: Scm<StringSpec>      = Scm::from("test string...");
+            let s2: Scm<ScmString>      = Scm::from("test string...");
             let s: String                = s2.to_string();
             assert_eq!(s, "test string...");
 
             assert!(s1.equal_p(&s2).is_true());
 
             // let s = "string123".to_owned();
-            // assert!(Guile::eval(&format!("\"{}\"", s)) == Scm::<StringSpec>::from_str(&s));
+            // assert!(Guile::eval(&format!("\"{}\"", s)) == Scm::<ScmString>::from_str(&s));
 
             assert!(Scm::true_c().is_bool());   // is boolean scheme type
             assert!(Scm::true_c().is_true());   // is true ...
             assert!(Scm::false_c().is_false()); // ...
             assert!(Scm::true_c().to_bool());   // as rust boolean type
 
-            let v: Scm<IntSpec> = Scm::from(12345);
+            let v: Scm<Int> = Scm::from(12345);
             assert!(v.is_number());
             assert!(v.is_exact_integer());
             assert!(v.is_exact());
@@ -99,8 +102,8 @@ mod tests {
             assert!(Scm::from(123) >= Scm::from(90));
             assert!(Scm::from(90)  >= Scm::from(90));
 
-            // Operations on numerics produce unspecified numeric type (NumericSpec)
-            let r: Scm<NumericSpec> = Scm::from(9) + Scm::from(8) * Scm::from(90) / (Scm::from(123) - Scm::from(113));
+            // Operations on numerics produce unspecified numeric type (Numeric)
+            let r: Scm<Numeric> = Scm::from(9) + Scm::from(8) * Scm::from(90) / (Scm::from(123) - Scm::from(113));
             let rr = 9 + 8 * 90 / (123 - 113);
             assert!(Scm::from(rr) == r);
 
@@ -119,7 +122,7 @@ mod tests {
 
             assert!(Guile::call_with_catch_all(|_| {
                 scm_eval!{ "test" }
-            }, ()).unwrap().equal_p(&Scm::<StringSpec>::from("test")).is_true());
+            }, ()).unwrap().equal_p(&Scm::<ScmString>::from("test")).is_true());
 
             #[allow(dead_code)]
             struct TestStruct {
@@ -128,18 +131,18 @@ mod tests {
 
 
             lazy_static! {
-                static ref FTYPE: Scm<ForeignTypeSpec> = {
+                static ref FTYPE: Scm<Foreign> = {
                     Guile::call_with_guile(|_| {
-                        Scm::new_type(&"Test".into(), &vec![Scm::<StringSpec>::from("val1")].into(), type_list![TestStruct])
+                        Scm::new_type(&"Test".into(), &vec![Scm::<ScmString>::from("val1")].into(), type_list![TestStruct])
                     }, ())
                 };
                 static ref FSLOTS: Box<TypeList> = type_list![TestStruct];
             }
 
             struct TestType { }
-            impl ForeignType for TestType {
+            impl ForeignSpec for TestType {
                 type Struct = TestStruct;
-                fn get_type<'a>() -> &'a Scm<ForeignTypeSpec> { &FTYPE }
+                fn get_type<'a>() -> &'a Scm<Foreign> { &FTYPE }
                 fn get_slot_types() -> Box<TypeList> {
                     // Box clone clones the boxes contents
                     FSLOTS.clone()
@@ -156,7 +159,7 @@ mod tests {
                 }
             }
 
-            type TestTypeSpec = ForeignObjectSpec<TestType>;
+            type TestTypeSpec = ForeignObject<TestType>;
 
             // NOTE: this commented test makes no sense anymore
             // let st: Scm<TestTypeSpec>
@@ -179,6 +182,3 @@ mod tests {
         // let _ = Guile::call_with_guile(|_| { }, ());
     }
 }
-
-
-

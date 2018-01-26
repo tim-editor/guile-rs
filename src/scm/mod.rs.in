@@ -1,4 +1,3 @@
-
 //! TypeSpecs and Scm struct for handling guile values
 //!
 //! # Example
@@ -49,9 +48,11 @@ mod list;
 mod hashtable;
 mod foreign;
 
+pub use self::string::String;
+pub use self::string::String as ScmString;
+
 pub use self::untyped::Untyped;
 pub use self::bool::Bool;
-pub use self::string::String;
 pub use self::numeric::*;
 pub use self::symbol::Symbol;
 pub use self::pair::Pair;
