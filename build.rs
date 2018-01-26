@@ -116,6 +116,7 @@ impl Synom for CArgs {
 }
 
 struct GuileDef {
+    pub attrs: Vec<syn::Attribute>,
     pub public: bool,
     pub name: syn::Ident,
     pub self_disabled: bool,
@@ -129,6 +130,7 @@ struct GuileDef {
 
 impl Synom for GuileDef {
     named!(parse -> Self, do_parse!(
+            attrs:  many0!(call!(syn::Attribute::parse_outer)) >>
             public: alt!(keyword!(pub) => {|_| true}
                          |
                          epsilon!()    => {|_| false}) >>
@@ -156,6 +158,7 @@ impl Synom for GuileDef {
                        |ri| if ri.is_none() { (false, None) } else { ri.unwrap() })>>
 
             (Self {
+                attrs:         attrs,
                 public:        public,
                 name:          name,
                 self_disabled: args.iter().any(|a| a.is_disable_self() || a.is_self()),
@@ -173,6 +176,7 @@ impl GuileDef {
     pub fn construct(&self) -> quote::Tokens {
         let mut tokens = if self.public {quote!(pub)} else {quote::Tokens::new()};
 
+        let attrs  = &self.attrs;
         let name   = self.name;
         let args   = self.args.iter().enumerate().map(|(i, e)| {
             match *e {
@@ -244,6 +248,7 @@ impl GuileDef {
 
         let _self = if self.self_disabled { quote!() } else { quote!(&self,) };
         tokens = quote!(
+                #(#attrs)*
                 #tokens fn #name<#(#bounds),*>(#_self #(#args),*) -> #ret_ty {
                     #body
                 }
