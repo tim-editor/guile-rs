@@ -1,7 +1,6 @@
 extern crate guile_rs_sys;
 extern crate libc;
 
-#[cfg(test)]
 #[macro_use]
 extern crate lazy_static;
 
@@ -42,6 +41,7 @@ mod tests {
     pub use std::string::String;
     pub use interp::Guile;
 
+    use std;
     use std::thread;
     use std::marker::PhantomData;
 
@@ -159,7 +159,7 @@ mod tests {
                 }
             }
 
-            type TestTypeSpec = ForeignObject<TestType>;
+            //type TestTypeSpec = ForeignObject<TestType>;
 
             // NOTE: this commented test makes no sense anymore
             // let st: Scm<TestTypeSpec>
@@ -172,13 +172,10 @@ mod tests {
             Guile::eval("(define h (make-hash-table 32))");
             Guile::eval(r#"(hashq-set! h 'foo "bar")"#);
         }, ());
-
     }
 
     #[test]
     pub fn scope_test() {
-        // FIXME: if we run Guile::call_with_guile here, we get segfault...
-        // (invalid memory reference)
-        // let _ = Guile::call_with_guile(|_| { }, ());
+
     }
 }

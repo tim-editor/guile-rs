@@ -5,6 +5,7 @@ use self::guile_rs_sys::*;
 use std::ptr;
 use std::ffi::CString;
 use std::mem::{transmute};
+use std::sync::Mutex;
 
 use scm::Scm;
 use scm::{Untyped, TypeSpec, Symbol, List};
@@ -20,8 +21,11 @@ macro_rules! scm_eval {
     }
 }
 
-pub struct Guile {
-}
+pub struct Guile {}
+
+// Used in call_with_guile to work around an
+// initialization bug in guile.
+static mut GUILE_INIT: bool = false;
 
 impl Guile {
     unsafe extern "C" fn proxy_guile_function<F: FnOnce(A)->R, A, R>(data: *mut libc::c_void) -> *mut libc::c_void {
@@ -33,12 +37,35 @@ impl Guile {
         transmute::<*mut R, *mut libc::c_void>(ret)
     }
 
+
     pub fn call_with_guile<F: FnOnce(A)->R, A, R>(fun: F, args: A) -> R {
+
+        // Due to a bug with guile initialization, guile must be
+        // fully initialized in one thread before another thread
+        // do the same. Otherwise a segfault occurs.
+        //
+        // To work around this, we are using a mutex to lock only
+        // on the first call to this function, after which the
+        // GUILE_INIT variable prevents that.
+        lazy_static! {
+            static ref INIT_LOCK: Mutex<usize> = Mutex::new(0);
+        }
+
+        let _lock;
         unsafe {
+
+            if !GUILE_INIT {
+                _lock = INIT_LOCK.lock().unwrap();
+            }
+
+
             let args_pt: *mut (F, A) = &mut (fun, args);
             let args_pt = args_pt as *mut libc::c_void;
 
             let ret = scm_with_guile(Some(Self::proxy_guile_function::<F, A, R>), args_pt);
+
+
+            GUILE_INIT = true;
 
             // read = very unsafe!
             ptr::read(transmute::<*mut libc::c_void, *mut R>(ret))
@@ -105,6 +132,7 @@ impl Guile {
         let raw = unsafe {
             scm_c_eval_string(CString::new(s).unwrap().as_ptr())
         };
+
         Scm::<Untyped>::from_raw(raw)
     }
 }
