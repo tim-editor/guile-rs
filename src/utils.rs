@@ -194,13 +194,12 @@ macro_rules! is_thing_manual {
             (&self, $($an: &Scm<$tn>),*) -> bool {
 
             unsafe {
-                gu_scm_is_true($cfunc(self.data, $($an.data),*))
+                gu_scm_is_true($cfunc(self.data, $($an.data),*)) == 1
             }
         }
     };
 }
 
-#[allow(unused_macros)]
 macro_rules! scm_func {
     ($fname:ident ($($an:ident: $at:ty),*) -> $r:ty, $cfunc:ident) => {
         #[inline]
@@ -235,7 +234,6 @@ macro_rules! scm_func {
  *      take in a value of type `$from` and return type `SCM`
  *
  */
-#[allow(unused_macros)]
 macro_rules! simple_from {
     ($from:ty, $cfunc: ident, $to:ty) => {
         impl From<$from> for $to {
@@ -256,7 +254,6 @@ macro_rules! simple_from {
  *      in a type `SCM` and return a value of type `$to`
  *
  */
-#[allow(unused_macros)]
 macro_rules! simple_try_as {
     ($from:ty, $cfunc:ident, $to:ty) => {
         impl TryAs<$to, ()> for $from {

@@ -1,6 +1,6 @@
 [package]
 name = "guile-rs"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Javier Pollak <javi.po.123@gmail.com>",
            "Sheheryar Parvaz <skipper308@hotmail.ca>"]
 

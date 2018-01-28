@@ -166,17 +166,22 @@ impl<TS: TypeSpec> Scm<TS> {
         // unsafe { transmute::<SCM, scm_t_bits>(self.data) }
     }
 
-    #[inline]
-    pub fn is_true(&self) -> bool { unsafe { gu_scm_is_true(self.data) } }
+    is_thing!(is_true => gu_scm_is_true);
+    is_thing!(is_false => gu_scm_is_false);
+    is_thing!(is_bool => scm_is_bool);
+    is_thing!(is_string => gu_scm_is_string);
 
-    #[inline]
-    pub fn is_false(&self) -> bool { unsafe { gu_scm_is_false(self.data) } }
+    //#[inline]
+    //pub fn is_true(&self) -> bool { unsafe { gu_scm_is_true(self.data) == 1 } }
 
-    #[inline]
-    pub fn is_bool(&self) -> bool { unsafe { scm_is_bool(self.data) == 1 } }
+    //#[inline]
+    //pub fn is_false(&self) -> bool { unsafe { gu_scm_is_false(self.data) == 1} }
 
-    #[inline]
-    pub fn is_string(&self) -> bool { unsafe { gu_scm_is_string(self.data) == 1 } }
+    //#[inline]
+    //pub fn is_bool(&self) -> bool { unsafe { scm_is_bool(self.data) == 1 } }
+
+    //#[inline]
+    //pub fn is_string(&self) -> bool { unsafe { gu_scm_is_string(self.data) == 1 } }
 
     // === NUMERICS ===
     is_thing!(is_number => scm_is_number);
@@ -209,7 +214,7 @@ impl<TS: TypeSpec> Scm<TS> {
     /// scheme operation: `eq?`
     #[inline]
     pub fn is_eq<OS: TypeSpec>(&self, other: &Scm<OS>) -> bool {
-        unsafe { gu_scm_is_eq(self.data, other.data) }
+        unsafe { gu_scm_is_eq(self.data, other.data) == 1 }
     }
 
     is_thing_p!(equal_p(other: OS<TypeSpec>) => scm_equal_p);
