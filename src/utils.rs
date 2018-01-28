@@ -1,3 +1,16 @@
+#[doc(hidden)]
+pub use internal_proc_macros::*;
+
+proc_macro_item_decl! {
+    /// implement a guile func
+    guile_impl! => guile_impl_impl
+}
+
+proc_macro_item_decl! {
+    /// implement a guile struct
+    guile_defs! => guile_defs_impl
+}
+
 /** into_type!()
  *
  *       Generate a function `pub fn $inn(self)` that

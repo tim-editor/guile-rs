@@ -1,0 +1,17 @@
+[package]
+name = "internal_proc_macros"
+version = "0.1.0"
+authors = ["Javier Pollak <javi.po.123@gmail.com>"]
+
+[dependencies]
+proc-macro-hack = "0.4"
+
+syn = { version = "0.12", features = ["full", "parsing", "extra-traits", "clone-impls"] }
+quote = "0.4"
+# syn = { git = "https://github.com/dtolnay/syn", features = ["full", "parsing", "visit_mut", "printing", "extra-traits", "clone-impls"] }
+# quote = { git = 'https://github.com/dtolnay/quote' }
+proc-macro2 = "*"
+regex = "0.2"
+
+[lib]
+proc-macro = true

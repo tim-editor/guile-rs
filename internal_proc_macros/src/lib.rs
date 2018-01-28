@@ -1,4 +1,6 @@
 #[macro_use]
+extern crate proc_macro_hack;
+#[macro_use]
 extern crate quote;
 #[macro_use]
 extern crate syn;
@@ -6,14 +8,8 @@ extern crate syn;
 extern crate regex;
 extern crate proc_macro2;
 
-use std::path::Path;
-use std::fs::File;
-use std::fs;
-use std::env;
-use std::io::{Read, Write};
 use std::collections::HashSet;
 
-use syn::visit_mut;
 use syn::token::{Semi, Comma};
 use syn::synom::{Synom};
 use syn::buffer::TokenBuffer;
@@ -22,7 +18,6 @@ use quote::{ToTokens, Tokens};
 use proc_macro2::{TokenStream};
 
 use regex::Regex;
-
 
 enum ArgDef {
     Type(syn::Type),
@@ -110,7 +105,8 @@ impl Synom for CArgDef {
 fn expand_carg_flags<T: Synom>(tts: TokenStream) -> T {
     let out = tts.to_string()
         .replace("@ s", "self.data")
-        .replace("@*", "! *");
+        .replace("@*", "! *")
+        .replace("@ *", "! *");
     let re = Regex::new(r"@ ([0-9]+) #").unwrap();
 
     let out = re.replace_all(&out,
@@ -121,8 +117,8 @@ fn expand_carg_flags<T: Synom>(tts: TokenStream) -> T {
         .replace("@ ", "a")
         .replace("! *", "@*");
 
-    eprintln!("EXPANDED: `{}`", out);
-    syn::parse_str(&out).unwrap()
+    // eprintln!("EXPANDED: `{}`", out);
+    syn::parse_str(&out).expect("Applying @ expansions")
 }
 
 #[derive(Debug)]
@@ -287,11 +283,11 @@ impl GuileDef {
                             .filter(|&e| !used_cargs.contains(e)) {
 
                             if raw {
-                                r.push(syn::parse_str(a).unwrap());
+                                r.push(syn::parse_str(a).expect("Parsing raw in carg"));
                             } else {
                                 r.push(syn::parse_str(
                                         &format!("{}.data", a)
-                                        ).unwrap())
+                                        ).expect("Parsing .data in carg"))
                             }
                         }
                         r
@@ -308,7 +304,7 @@ impl GuileDef {
         }
 
         if let syn::Type::Tuple(t) =
-            syn::parse_str(&ret_ty.to_string()).unwrap() {
+            syn::parse_str(&ret_ty.to_string()).expect("Parsing return type") {
 
             if t.elems.is_empty() {
                 body = quote!(#body;);
@@ -363,20 +359,22 @@ named!(parse_guile_impl -> TokenStream, do_parse!(
 
 ));
 
-struct MacroVisitor;
-impl visit_mut::VisitMut for MacroVisitor {
-    fn visit_macro_mut(&mut self, i: &mut syn::Macro) {
-        // To expand the `guile_impl!()` macro...
-        if i.path == syn::Path::from("guile_impl") {
-            let sb = TokenBuffer::new2(i.tts.clone().into());
+proc_macro_item_impl! {
+    /// implement a guile func
+    pub fn guile_impl_impl(input: &str) -> String {
+            let sb = TokenBuffer::new2(
+                syn::parse_str::<TokenStream>(input).expect("Turning str into tokenstream"));
 
-            i.tts = parse_guile_impl(sb.begin())
-                .expect("Expanding guile_impl macro").0;
+            format!("{}", parse_guile_impl(sb.begin())
+                    .expect("Expanding guile_impl macro").0)
+    }
+}
 
-
-        // To expand the `guile_defs!()` macro...
-        } else if i.path == syn::Path::from("guile_defs") {
-            let sb = TokenBuffer::new2(i.tts.clone().into());
+proc_macro_item_impl! {
+    /// implement a guile struct
+    pub fn guile_defs_impl(input: &str) -> String {
+            let sb = TokenBuffer::new2(
+                syn::parse_str::<TokenStream>(input).expect("Turning str into tokenstream"));
 
             let gdefs = parse_guile_defs(sb.begin())
                 .expect("Expanding guile_defs macro").0;
@@ -386,70 +384,6 @@ impl visit_mut::VisitMut for MacroVisitor {
             gdefs.iter().for_each(
                 |gd| gd.construct().to_tokens(&mut mtokens));
 
-            i.tts = mtokens.into();
-        }
+            format!("{}", mtokens)
     }
-}
-
-fn main() {
-    // Cargo.toml is in project root
-    let root = env::var("CARGO_MANIFEST_DIR").unwrap();
-
-    fn procfiles<P: AsRef<Path>>(dir: P) {
-        let dir_entries = fs::read_dir(dir).unwrap();
-
-        for i in dir_entries {
-
-            let i = i.unwrap();
-            let path = i.path();
-            let ftype = i.file_type().unwrap();
-
-            if ftype.is_file() {
-
-                match path.extension() {
-
-                    Some(x) if x == "in" => {
-                        let to = path.with_extension("");
-                        fs::copy(&path, &to).unwrap();
-                        expand_macros(&to);
-                    }
-
-                    _ => continue
-                }
-
-            } else if ftype.is_dir() {
-                procfiles(path);
-            }
-        }
-    }
-
-    procfiles(Path::new(&root).join("src").join("scm"));
-}
-
-fn expand_macros(target: &Path) {
-    let mut source = String::new();
-    File::open(target).unwrap().read_to_string(&mut source).unwrap();
-    let file = syn::parse_file(&source);
-    let mut file = match file {
-        Ok(f)  => f,
-        Err(_) => return
-    };
-
-    visit_mut::visit_file_mut(&mut MacroVisitor{}, &mut file);
-
-    let mut tokens = Tokens::new();
-    file.to_tokens(&mut tokens);
-    File::create(target).unwrap()
-        .write_all(
-            tokens
-            .to_string()
-            .replace("{ ", "{\n")
-            .replace(" }", "\n}")
-            .replace("( ", "(")
-            .replace(" )", ")")
-            .replace(" ; ", ";\n")
-            .replace(" !", "!")
-            .as_bytes()
-        ).unwrap();
-
 }

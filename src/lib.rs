@@ -2,6 +2,12 @@ extern crate guile_rs_sys;
 extern crate libc;
 
 #[macro_use]
+extern crate proc_macro_hack;
+#[allow(unused_imports)]
+#[macro_use]
+extern crate internal_proc_macros;
+
+#[macro_use]
 extern crate lazy_static;
 
 #[macro_use]
