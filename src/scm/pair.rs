@@ -2,7 +2,7 @@ use scm::TypeSpec;
 use scm::Scm;
 use scm::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Pair;
 impl TypeSpec for Pair {}
 

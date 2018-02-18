@@ -46,10 +46,12 @@ mod tests {
     pub use scm::*;
     pub use std::string::String;
     pub use interp::Guile;
+    pub use guile_rs_sys::{SCM, scm_t_subr, scm_c_define_gsubr};
 
     use std;
     use std::thread;
     use std::marker::PhantomData;
+    use std::ffi::CString;
 
     #[test]
     pub fn guile_test() {
@@ -130,47 +132,6 @@ mod tests {
                 scm_eval!{ "test" }
             }, ()).unwrap().equal_p(&Scm::<ScmString>::from("test")).is_true());
 
-            #[allow(dead_code)]
-            struct TestStruct {
-                val1: u8
-            }
-
-
-            lazy_static! {
-                static ref FTYPE: Scm<Foreign> = {
-                    Guile::call_with_guile(|_| {
-                        Scm::new_type(&"Test".into(), &vec![Scm::<ScmString>::from("val1")].into(), type_list![TestStruct])
-                    }, ())
-                };
-                static ref FSLOTS: Box<TypeList> = type_list![TestStruct];
-            }
-
-            struct TestType { }
-            impl ForeignSpec for TestType {
-                type Struct = TestStruct;
-                fn get_type<'a>() -> &'a Scm<Foreign> { &FTYPE }
-                fn get_slot_types() -> Box<TypeList> {
-                    // Box clone clones the boxes contents
-                    FSLOTS.clone()
-                }
-                fn as_struct_mut<'a>() -> &'a mut Self::Struct {
-                    unimplemented!()
-                    // &mut TestStruct { val1: 7 }
-                }
-                fn as_struct<'a>() -> &'a Self::Struct {
-                    // This should actually pull it from the SCM data...
-
-                    // Dummy:
-                    &TestStruct { val1: 7 }
-                }
-            }
-
-            //type TestTypeSpec = ForeignObject<TestType>;
-
-            // NOTE: this commented test makes no sense anymore
-            // let st: Scm<TestTypeSpec>
-            //     = Scm::from_struct(TestStruct { val1: 21 });
-
 
         }, ());
 
@@ -178,6 +139,112 @@ mod tests {
             Guile::eval("(define h (make-hash-table 32))");
             Guile::eval(r#"(hashq-set! h 'foo "bar")"#);
         }, ());
+    }
+
+    #[test]
+    pub fn foreign_test() {
+        #[allow(dead_code)]
+        #[derive(Debug)]
+        struct TestStruct {
+            data0: u8
+        }
+
+
+        lazy_static! {
+            // static ref FTYPE: Scm<Foreign> = {
+            //     Guile::call_with_guile(|_| {
+            //         Scm::new_type(&"Test".into(), &vec![Scm::<ScmString>::from("val1")].into(), type_list![TestStruct])
+            //     }, ())
+            // };
+            // static ref FSLOTS: Box<TypeList> = type_list![TestStruct];
+            //
+            static ref FTYPE: Scm<Foreign<TestStruct>> = {
+                Guile::call_with_guile(|_| {
+                    Scm::new_type(&"Test".into())
+                }, ())
+            };
+        }
+
+        // struct TestType {}
+        // impl ForeignSpec for TestType {
+        //     // type SlotTypes = type_list![TestStruct];
+
+        unsafe extern "C" fn test_data(fo: SCM) -> SCM {
+            let st = Scm::<Untyped>::from_raw(fo).into_foreign(&*FTYPE).unwrap();
+            assert!(st.is_foreign(&*FTYPE));
+
+            if st.get_data().unwrap().data0 == 32 {
+                Scm::true_c()
+            } else {
+                Scm::false_c()
+            }.into_raw()
+        }
+
+        unsafe extern "C" fn get_foreign_o(n: SCM) -> SCM {
+            let n: u8 = Scm::<Untyped>::from_raw(n).into_integer().unwrap().try_as().unwrap();
+
+            let st = Scm::<ForeignObject<TestStruct>>::new(&*FTYPE, TestStruct { data0: n });
+
+            st.into_raw()
+        }
+
+        let st = Scm::<ForeignObject<TestStruct>>::new(&*FTYPE, TestStruct { data0: 21 });
+
+
+        let _ = Guile::call_with_guile(|_| {
+            unsafe {
+                let _ = scm_c_define_gsubr(
+                    CString::new("test-data").unwrap().as_ptr(),
+                    1, 0, 0,
+                    test_data as scm_t_subr
+                    );
+
+                let _ = scm_c_define_gsubr(
+                    CString::new("get-foreign-o").unwrap().as_ptr(),
+                    1, 0, 0,
+                    get_foreign_o as scm_t_subr
+                    );
+            }
+
+            assert!(st.is_foreign(&*FTYPE));
+            assert_eq!(st.get_data().unwrap().data0, 21u8);
+
+            let res: Scm<Untyped> = Guile::eval("
+
+                    (test-data (get-foreign-o 32))
+
+                ");
+
+            assert!(res.is_true())
+
+        }, ());
+
+        //     // fn get_type<'a>() -> &'a Scm<Foreign> { &FTYPE }
+        //     // fn get_slot_types() -> Box<TypeList> {
+        //     //     // &FTYPE.get_slot_types()
+        //     //     // Box clone clones the boxes contents
+        //     //     FSLOTS.clone()
+        //     // }
+        //     // fn as_struct_mut<'a>() -> &'a mut Self::Struct {
+        //     //     unimplemented!()
+        //     //     // &mut TestStruct { val1: 7 }
+        //     // }
+        //     // fn as_struct<'a>() -> &'a Self::Struct {
+        //     //     // This should actually pull it from the SCM data...
+
+        //     //     // Dummy:
+        //     //     &TestStruct { val1: 7 }
+        //     // }
+        // }
+
+        //type TestTypeSpec = ForeignObject<TestType>;
+
+        // NOTE: this commented test makes no sense anymore
+        // let st: Scm<TestTypeSpec>
+        //     = Scm::from_struct(TestStruct { val1: 21 });
+
+        // let _ = Guile::call_with_guile(|_| {}, ());
+
     }
 
     #[test]

@@ -6,7 +6,7 @@ use scm::String as ScmString;
 use guile_rs_sys::*;
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Symbol;
 impl TypeSpec for Symbol {}
 

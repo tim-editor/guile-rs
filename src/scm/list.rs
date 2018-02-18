@@ -4,7 +4,7 @@ use scm::*;
 
 
 // NOTE: should we have this? (list types are really just pair chains)
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct List;
 impl TypeSpec for List {}
 

@@ -7,7 +7,7 @@ use scm::Symbol;
 
 use guile_rs_sys::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct String;
 
 use scm::string::String as ScmString;

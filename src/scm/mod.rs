@@ -65,11 +65,13 @@ use std::marker::PhantomData;
 use std::ptr;
 use std::mem::transmute;
 use std::collections::VecDeque;
+use std::any::Any;
+use std::fmt::Debug;
 
 use libc;
 
 
-pub trait TypeSpec {}
+pub trait TypeSpec : Clone {}
 pub trait NumericSpec: TypeSpec {}
 
 
@@ -80,9 +82,10 @@ pub trait NumericSpec: TypeSpec {}
 
 
 #[derive(Clone, Debug)]
-pub struct Scm<TS: TypeSpec> {
+pub struct Scm<TS: TypeSpec + Clone> {
     pub(crate) data: SCM,
-    spec: PhantomData<TS>
+    // spec: PhantomData<TS>,
+    spec: Option<TS>,
 }
 
 unsafe impl<TS: TypeSpec> Send for Scm<TS> {}
@@ -139,7 +142,13 @@ unsafe impl<TS: TypeSpec> Sync for Scm<TS> {}
 impl<TS: TypeSpec> Scm<TS> {
     #[inline]
     pub(crate) fn _from_raw(data: SCM) -> Scm<TS> {
-        Scm { data, spec: PhantomData }
+        // Scm { data, spec: PhantomData }
+        Scm { data, spec: None }
+    }
+
+    #[inline]
+    pub(crate) fn _from_raw_with_spec(data: SCM, spec: TS) -> Scm<TS> {
+        Scm { data, spec: Some(spec) }
     }
 
     #[inline]
@@ -203,6 +212,18 @@ impl<TS: TypeSpec> Scm<TS> {
     is_thing_p!(list_p => scm_list_p);
     is_thing_p!(hash_table_p => scm_hash_table_p);
 
+    // === FOREIGN ===
+
+    pub fn is_foreign<T>(&self, typ: &Scm<Foreign<T>>) -> bool {
+        return unsafe { gu_SCM_IS_A_P(self.data, typ.data) == 1 }
+    }
+
+    pub fn is_foreign_p<T>(&self, typ: &Scm<Foreign<T>>) -> Scm<Bool> {
+        if self.is_foreign(typ) { Scm::true_c() } else { Scm::false_c() }
+    }
+
+    // === \\\ ===
+
     /// check for identity (`scm_eq_p`)
     /// scheme operation: `eq?`
     #[inline]
@@ -224,7 +245,7 @@ impl<TS: TypeSpec> Scm<TS> {
 
 /// A binary list of types known at compile time
 /// `Box<TypeList>` should always be built from the `type_list!()` macro!
-pub trait TypeList: Send + Sync {
+pub trait TypeList: Send + Sync + Debug {
     /// Drop the node's contents
     ///
     /// IMPORTANT: length of `v` should be equal to length of the ndoe
@@ -233,6 +254,8 @@ pub trait TypeList: Send + Sync {
     /// Get the length of the node
     /// 0 if node is a Nil
     fn len(&self) -> usize;
+
+    fn deref(&self, v: *mut libc::c_void, n: usize) -> Option<&Any>;
 
     fn cloned(&self) -> Box<TypeList>;
 }
@@ -246,8 +269,9 @@ impl Clone for Box<TypeList> {
 }
 
 /// A Type element from a `TypeList`
-pub trait TypeElem: Send + Sync {
+pub trait TypeElem: Send + Sync + Debug {
     unsafe fn consume(&self, v: *mut libc::c_void);
+    fn deref(&self, v: *mut libc::c_void) -> Option<&Any>;
     fn cloned(&self) -> Box<TypeElem>;
 }
 
@@ -257,35 +281,53 @@ impl Clone for Box<TypeElem> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// An Item in the list representing the type at that position
-pub struct TypeItem<T: 'static + Send + Sync>(pub PhantomData<T>);
-impl<T: 'static + Send + Sync> TypeElem for TypeItem<T> {
+pub struct TypeItem<T: 'static + Send + Sync + Debug>(pub PhantomData<T>);
+impl<T: 'static + Send + Sync + Debug> TypeElem for TypeItem<T> {
     /// Properly drop the variable
     ///
     /// IMPORTANT: the value of the `v` parameter should be a raw pointer from a `Box<T>`
     /// where `T` is the TypeItem's `T`. (check code for clearer view of functionality)
     unsafe fn consume(&self, v: *mut libc::c_void) {
+        if v == ptr::null_mut() { return; }
         let v: Box<T> = Box::from_raw(transmute(v));
         drop(v);
     }
+
+    fn deref(&self, v: *mut libc::c_void) -> Option<&Any> {
+        unsafe {
+            let v: *mut T = transmute(v);
+            let v: Option<&T> = v.as_ref();
+            match v {
+                Some(v) => Some(v as &Any),
+                None => None,
+            }
+        }
+    }
+
     fn cloned(&self) -> Box<TypeElem> {
         Box::new(TypeItem::<T>(PhantomData))
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Marks end of a TyepeList
 pub struct Nil {}
 impl TypeList for Nil {
     unsafe fn consume_node(&self, v: VecDeque<*mut libc::c_void>) {
         assert_eq!(v.len(), 0);
     }
+
+    fn deref(&self, v: *mut libc::c_void, _: usize) -> Option<&Any> {
+        None
+    }
+
     fn len(&self) -> usize { 0 }
     fn cloned(&self) -> Box<TypeList> { Box::new(self.clone()) }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// A node of the binary spine that makes the TypeList
 pub struct TypePair(pub Box<TypeElem>, pub Box<TypeList>);
 impl TypeList for TypePair {
@@ -295,6 +337,16 @@ impl TypeList for TypePair {
         assert_eq!(v.len(), 1);
         self.0.consume(v[0]);
     }
+
+
+    fn deref(&self, v: *mut libc::c_void, n: usize) -> Option<&Any> {
+        if n == 0 {
+            self.0.deref(v)
+        } else {
+            self.1.deref(v, n-1)
+        }
+    }
+
     fn len(&self) -> usize { 1 + self.1.len() }
     fn cloned(&self) -> Box<TypeList> { Box::new(self.clone()) }
 }
@@ -322,10 +374,11 @@ macro_rules! type_list {
 
 impl<N: NumericSpec> From<Scm<N>> for Scm<self::String> {
     fn from(numeric: Scm<N>) -> Scm<self::String> {
-        Self {
-            data: unsafe { scm_number_to_string(numeric.data, ptr::null_mut()) },
-            spec: PhantomData,
-        }
+        Scm::_from_raw( unsafe { scm_number_to_string(numeric.data, ptr::null_mut()) } )
+        // Self {
+        //     data: unsafe { scm_number_to_string(numeric.data, ptr::null_mut()) },
+        //     spec: PhantomData,
+        // }
     }
 }
 

@@ -8,27 +8,27 @@ use scm::*;
 use scm::String as ScmString;
 
 /// See [spec implementation](struct.Scm.html#impl-4)
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Numeric;
 impl TypeSpec for Numeric {}
 impl NumericSpec for Numeric {}
 
 /// See [spec implementation](struct.Scm.html#impl-5)
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Int;
 impl TypeSpec for Int {}
 impl NumericSpec for Int {}
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Complex;
 impl TypeSpec for Complex {}
 impl NumericSpec for Complex {}
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Rational;
 impl TypeSpec for Rational {}
 impl NumericSpec for Rational {}
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Real;
 impl TypeSpec for Real {}
 impl NumericSpec for Real {}

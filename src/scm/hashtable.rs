@@ -6,19 +6,19 @@ use scm::Untyped;
 use guile_rs_sys::*;
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HashTable;
 impl TypeSpec for HashTable {}
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HashQTable;
 impl TypeSpec for HashQTable {}
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HashVTable;
 impl TypeSpec for HashVTable {}
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HashXTable;
 impl TypeSpec for HashXTable {}
 

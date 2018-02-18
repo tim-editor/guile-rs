@@ -11,6 +11,11 @@ proc_macro_item_decl! {
     guile_defs! => guile_defs_impl
 }
 
+proc_macro_item_decl! {
+    /// implement a foreign object type
+    foreign_impl! => foreign_impl_impl
+}
+
 /** into_type!()
  *
  *       Generate a function `pub fn $inn(self)` that
@@ -251,10 +256,11 @@ macro_rules! simple_from {
     ($from:ty, $cfunc: ident, $to:ty) => {
         impl From<$from> for $to {
             fn from(f: $from) -> $to {
-                Self {
-                    data: unsafe { $cfunc(f) },
-                    spec: PhantomData,
-                }
+                Scm::_from_raw( unsafe{ $cfunc(f) } )
+                // Self {
+                //     data: unsafe { $cfunc(f) },
+                //     spec: PhantomData,
+                // }
             }
         }
     };

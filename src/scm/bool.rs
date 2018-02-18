@@ -6,7 +6,7 @@ use scm::TypeSpec;
 use guile_rs_sys::*;
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Bool;
 impl TypeSpec for Bool {}
 
