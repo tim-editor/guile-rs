@@ -49,6 +49,9 @@ SCM gu_scm_list_n(SCM* elts) {
     return answer;
 }
 
+int gu_SCM_IS_A_P(SCM val, SCM type) {
+    return SCM_IS_A_P(val, type);
+}
 
 void test_func() {
     return;
