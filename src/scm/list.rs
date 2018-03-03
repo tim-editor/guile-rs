@@ -13,7 +13,7 @@ impl<TS: TypeSpec> From<Vec<Scm<TS>>> for Scm<List> {
     fn from(l: Vec<Scm<TS>>) -> Scm<List> {
         let mut l: Vec<SCM> = l.into_iter().map(|e| e.data).collect();
         l.push(unsafe { gu_SCM_UNDEFINED() });
-        Scm::_from_raw(unsafe { gu_scm_list_n(l.as_mut_ptr()) })
+        unsafe { Scm::_from_raw(gu_scm_list_n(l.as_mut_ptr())) }
     }
 }
 

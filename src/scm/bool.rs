@@ -14,14 +14,14 @@ impl Scm<Bool> {
     /// Return a true litteral Scm object
     #[inline]
     pub fn true_c() -> Scm<Bool> {
-        Scm::_from_raw(unsafe { gu_SCM_BOOL_T() })
+        unsafe { Scm::_from_raw(gu_SCM_BOOL_T()) }
         // Scm { data: unsafe { gu_SCM_BOOL_T() } , spec: PhantomData }
     }
 
     /// Return a false litteral Scm object
     #[inline]
     pub fn false_c() -> Scm<Bool> {
-        Scm::_from_raw(unsafe { gu_SCM_BOOL_F() })
+        unsafe { Scm::_from_raw(gu_SCM_BOOL_F()) }
         // Scm { data: unsafe { gu_SCM_BOOL_F() }, spec: PhantomData }
     }
 
@@ -37,6 +37,6 @@ impl Scm<Bool> {
 impl Not for Scm<Bool> {
     type Output = Scm<Bool>;
     fn not(self) -> Scm<Bool> {
-        Scm::_from_raw(unsafe { scm_not(self.data) })
+        unsafe { Scm::_from_raw(scm_not(self.data)) }
     }
 }

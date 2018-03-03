@@ -170,6 +170,8 @@ mod tests {
         //     // type SlotTypes = type_list![TestStruct];
 
         unsafe extern "C" fn test_data(fo: SCM) -> SCM {
+            // let fo: Scm::<ForeignObject<TestStruct>> = Scm::<Untyped>::from_raw(fo);
+
             let st = Scm::<Untyped>::from_raw(fo).into_foreign(&*FTYPE).unwrap();
             assert!(st.is_foreign(&*FTYPE));
 
@@ -181,17 +183,33 @@ mod tests {
         }
 
         unsafe extern "C" fn get_foreign_o(n: SCM) -> SCM {
-            let n: u8 = Scm::<Untyped>::from_raw(n).into_integer().unwrap().try_as().unwrap();
+            let n: Scm<Int> = Scm::<Untyped>::from_raw(n).into_integer().unwrap();
 
-            let st = Scm::<ForeignObject<TestStruct>>::new(&*FTYPE, TestStruct { data0: n });
+            let o: Scm<ForeignObject<TestStruct>> = {
+                let n: u8 = n.try_as().unwrap();
+                Scm::<ForeignObject<TestStruct>>::new(&*FTYPE, TestStruct { data0: n })
+            };
 
-            st.into_raw()
+            o.into_raw()
+
+            // |n: Scm<Int>| -> Scm<ForeignObject<TestStruct>> {
+            //     let n: u8 = n.try_as().unwrap();
+            //     Scm::<ForeignObject<TestStruct>>::new(&*FTYPE, TestStruct { data0: n })
+            // }
+
+            // (n).into_raw()
         }
 
         let st = Scm::<ForeignObject<TestStruct>>::new(&*FTYPE, TestStruct { data0: 21 });
 
 
         let _ = Guile::call_with_guile(|_| {
+
+            guile_define_subr!("get_foreign_o", |n: Scm<Int>| -> Scm<ForeignObject<TestStruct>> {
+                let n: u8 = n.try_as().unwrap();
+                Scm::<ForeignObject<TestStruct>>::new(&*FTYPE, TestStruct { data0: n })
+            });
+
             unsafe {
                 let _ = scm_c_define_gsubr(
                     CString::new("test-data").unwrap().as_ptr(),

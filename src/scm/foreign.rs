@@ -85,13 +85,13 @@ impl<T> Scm<Foreign<T>> {
             Scm::<Symbol>::from("data")
         ].into();
 
-        Scm::_from_raw_with_spec(
-            unsafe {
+        unsafe {
+            Scm::_from_raw_with_spec(
                 scm_make_foreign_object_type(name.data,
                                              slots.data,
-                                             Some(Self::finalizer))
-            },
+                                             Some(Self::finalizer)),
             Foreign { _data: PhantomData })
+        }
     }
     // // NOTE: types in slots should probably be Boxes!!!!!
     // pub fn new_type(name: &Scm<ScmString>, slot_names: &Scm<List>, slot_types: Box<TypeList>) -> Self {
@@ -135,14 +135,15 @@ impl<T> Scm<ForeignObject<T>> {
     pub fn new(typ: &Scm<Foreign<T>>, data: T) ->
         Scm<ForeignObject<T>> {
 
-        Scm::_from_raw_with_spec(
-            unsafe {
+        unsafe {
+            Scm::_from_raw_with_spec(
                 scm_make_foreign_object_1(
                     typ.data,
-                    Box::into_raw(Box::new(data))
-                        as *mut libc::c_void)
-            },
-            ForeignObject { typ: (*typ).clone() })
+                    Box::into_raw(Box::new(data)) as *mut libc::c_void
+                ),
+                ForeignObject { typ: (*typ).clone() }
+            )
+        }
     }
 
     pub unsafe fn get_raw(&self) -> *mut T {

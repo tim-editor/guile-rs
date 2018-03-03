@@ -41,6 +41,6 @@ guile_impl!(Scm<ScmString> {
     }
 
     pub fn into_symbol(self) -> Scm<Symbol> {
-        Scm::_from_raw(unsafe { scm_string_to_symbol(self.data) })
+        unsafe {  Scm::_from_raw(scm_string_to_symbol(self.data)) }
     }
 });

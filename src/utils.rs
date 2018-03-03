@@ -12,8 +12,8 @@ proc_macro_item_decl! {
 }
 
 proc_macro_item_decl! {
-    /// implement a foreign object type
-    foreign_impl! => foreign_impl_impl
+    /// define a subroutine that is callable from guile
+    guile_define_subr! => guile_define_subr_impl
 }
 
 /** into_type!()
@@ -34,7 +34,7 @@ proc_macro_item_decl! {
  *
  *      pub fn into_bool(self) -> Result<Scm<Bool>, ()> {
  *          if self.is_bool() {
- *              Ok(self.into_type())
+                Ok(unsafe { Scm::_from_raw(self.data) })
  *          } else {
  *              Err(())
  *          }
@@ -53,7 +53,7 @@ macro_rules! into_type {
     ($inn:ident, $isn:ident, $spec:ident) => {
         pub fn $inn(self) -> Result<Scm<$spec>, ()> {
             if self.$isn() {
-                Ok(self.into_type())
+                Ok(unsafe { Scm::_from_raw(self.data) })
             } else {
                 Err(())
             }
@@ -84,14 +84,16 @@ macro_rules! into_type {
  *
  *      #[inline]
  *      pub fn exact_p(&self) -> Scm<Bool> {
- *          Scm::_from_raw(unsafe { scm_exact_p(self.data) })
+ *          unsafe { Scm::_from_raw(scm_exact_p(self.data)) }
  *      }
  *
  *      #[inline]
  *      pub fn gr_p<T: NumericSpec>(&self, other: T) -> Scm<Bool> {
- *          Scm::_from_raw(unsafe {
+ *          unsafe {
+ *              Scm::_from_raw(unsafe {
  *                  scm_gr_p(self.data, other.data)
  *              })
+ *          }
  *      }
  *
  *      ```
@@ -114,9 +116,11 @@ macro_rules! is_thing_p {
         pub fn $fname <$($tn: $at),*>
             (&self, $($an: &Scm<$tn>),*) -> Scm<Bool> {
 
-            Scm::_from_raw(unsafe {
-                $cfunc(self.data, $($an.data),*)
-            })
+            unsafe {
+                Scm::_from_raw(
+                    $cfunc(self.data, $($an.data),*)
+                )
+            }
         }
     };
 }
@@ -222,7 +226,7 @@ macro_rules! scm_func {
     ($fname:ident ($($an:ident: $at:ty),*) -> $r:ty, $cfunc:ident) => {
         #[inline]
         pub fn $fname(&self, $($an: $at),*) -> $r {
-            Scm::_from_raw(unsafe { $cfunc(self.data, $($an.data),*) })
+            unsafe { Scm::_from_raw($cfunc(self.data, $($an.data),*)) }
         }
     };
     ($fname:ident ($($an:ident: $at:ty),*), $cfunc:ident) => {
@@ -234,7 +238,7 @@ macro_rules! scm_func {
     (P $fname:ident ($($an:ident: $tn:ident <$at:path>),*) -> $r:ty, $cfunc:ident) => {
         #[inline]
         pub fn $fname<$($tn: $at),*>(&self, $($an: &Scm<$tn>),*) -> $r {
-            Scm::_from_raw(unsafe { $cfunc(self.data, $($an.data),*) })
+            unsafe { Scm::_from_raw($cfunc(self.data, $($an.data),*)) }
         }
     };
     (P $fname:ident ($($an:ident: $tn:ident <$at:path>),*), $cfunc:ident) => {
@@ -256,7 +260,7 @@ macro_rules! simple_from {
     ($from:ty, $cfunc: ident, $to:ty) => {
         impl From<$from> for $to {
             fn from(f: $from) -> $to {
-                Scm::_from_raw( unsafe{ $cfunc(f) } )
+                unsafe { Scm::_from_raw($cfunc(f)) }
                 // Self {
                 //     data: unsafe { $cfunc(f) },
                 //     spec: PhantomData,

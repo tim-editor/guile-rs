@@ -65,7 +65,7 @@ use std::marker::PhantomData;
 use std::ptr;
 use std::mem::transmute;
 use std::collections::VecDeque;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::fmt::Debug;
 
 use libc;
@@ -141,32 +141,36 @@ unsafe impl<TS: TypeSpec> Sync for Scm<TS> {}
 
 impl<TS: TypeSpec> Scm<TS> {
     #[inline]
-    pub(crate) fn _from_raw(data: SCM) -> Scm<TS> {
+    pub(crate) unsafe fn _from_raw(data: SCM) -> Scm<TS> {
         // Scm { data, spec: PhantomData }
         Scm { data, spec: None }
     }
 
     #[inline]
-    pub(crate) fn _from_raw_with_spec(data: SCM, spec: TS) -> Scm<TS> {
+    pub(crate) unsafe fn _from_raw_with_spec(data: SCM, spec: TS) -> Scm<TS> {
         Scm { data, spec: Some(spec) }
     }
 
     #[inline]
     pub fn from_raw(data: SCM) -> Scm<Untyped> {
-        Scm::_from_raw(data)
+        unsafe { Scm::_from_raw(data) }
     }
 
     #[inline]
-    pub unsafe fn into_raw(self) -> SCM { self.data }
+    pub fn into_raw(self) -> SCM { self.data }
 
-    // Do not use this without checking for type first
-    fn into_type<S: TypeSpec>(self) -> Scm<S> {
-        Scm::_from_raw(self.data)
+    #[inline]
+    pub fn into_type<S: TypeSpec + 'static>(self) -> Result<Scm<S>, Scm<TS>> {
+        if self.is::<S>() {
+            Ok(unsafe { Scm::_from_raw(self.data) })
+        } else {
+            Err(self)
+        }
     }
 
     #[inline]
     pub fn into_unspecified(self) -> Scm<Untyped> {
-        Scm::into_type(self)
+        unsafe { Scm::_from_raw(self.data) }
     }
 
     #[inline]
@@ -212,6 +216,25 @@ impl<TS: TypeSpec> Scm<TS> {
     is_thing_p!(list_p => scm_list_p);
     is_thing_p!(hash_table_p => scm_hash_table_p);
 
+    pub fn is<T: TypeSpec + 'static>(&self) -> bool {
+        let num_id = TypeId::of::<Scm<Numeric>>();
+        let int_id = TypeId::of::<Scm<Int>>();
+        let sym_id = TypeId::of::<Scm<Symbol>>();
+        let pai_id = TypeId::of::<Scm<Pair>>();
+        let lis_id = TypeId::of::<Scm<List>>();
+        let has_id = TypeId::of::<Scm<HashTable>>();
+
+        match TypeId::of::<T>() {
+            num_id => self.is_number(),
+            int_id => self.is_integer(),
+            sym_id => self.is_symbol(),
+            pai_id => self.is_pair(),
+            lis_id => self.is_list(),
+            has_id => self.is_hash_table(),
+            _ => false
+        }
+    }
+
     // === FOREIGN ===
 
     pub fn is_foreign<T>(&self, typ: &Scm<Foreign<T>>) -> bool {
@@ -228,7 +251,7 @@ impl<TS: TypeSpec> Scm<TS> {
     /// scheme operation: `eq?`
     #[inline]
     pub fn eq_p<OS: TypeSpec>(&self, other: &Scm<OS>) -> Scm<Bool> {
-        Scm::_from_raw(unsafe { scm_eq_p(self.data, other.data) })
+        unsafe { Scm::_from_raw(scm_eq_p(self.data, other.data)) }
     }
 
     /// check for identity (`scm_eq_p`)
@@ -374,7 +397,7 @@ macro_rules! type_list {
 
 impl<N: NumericSpec> From<Scm<N>> for Scm<self::String> {
     fn from(numeric: Scm<N>) -> Scm<self::String> {
-        Scm::_from_raw( unsafe { scm_number_to_string(numeric.data, ptr::null_mut()) } )
+        unsafe { Scm::_from_raw(scm_number_to_string(numeric.data, ptr::null_mut())) }
         // Self {
         //     data: unsafe { scm_number_to_string(numeric.data, ptr::null_mut()) },
         //     spec: PhantomData,

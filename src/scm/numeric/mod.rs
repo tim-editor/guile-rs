@@ -115,7 +115,7 @@ macro_rules! impl_op {
             type Output = Scm<$out>;
 
             fn $func(self, other: Scm<RT>) -> Scm<$out> {
-                Scm::_from_raw(unsafe { $cfunc(self.data, other.data) })
+                unsafe { Scm::_from_raw($cfunc(self.data, other.data)) }
             }
         }
     };
@@ -125,7 +125,7 @@ macro_rules! impl_op {
             type Output = Scm<$out>;
 
             fn $func(self, other: Scm<$rhs>) -> Scm<$out> {
-                Scm::_from_raw(unsafe { $cfunc(self.data, other.data) })
+                unsafe { Scm::_from_raw($cfunc(self.data, other.data)) }
             }
         }
     };

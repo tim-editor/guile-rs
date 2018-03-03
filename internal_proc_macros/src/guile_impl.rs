@@ -288,12 +288,14 @@ impl GuileDef {
         }).collect();
 
         let mut body = quote!(
-            unsafe { #cfunc(#(#cargs),*) }
+            #cfunc(#(#cargs),*)
         );
 
-        if self.ret_from_raw {
-            body = quote!(Scm::_from_raw(#body));
-        }
+        body = if self.ret_from_raw {
+            quote!(unsafe { Scm::_from_raw(#body) })
+        } else {
+            quote!(unsafe { #body })
+        };
 
         if let syn::Type::Tuple(t) =
             syn::parse_str(&ret_ty.to_string()).expect("Parsing return type") {

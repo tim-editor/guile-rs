@@ -24,9 +24,9 @@ impl Scm<Untyped> {
         Result<Scm<ForeignObject<T>>, ()> {
 
         if self.is_foreign(typ) {
-            Ok(Scm::_from_raw_with_spec(
+            Ok(unsafe { Scm::_from_raw_with_spec(
                     self.data,
-                    ForeignObject { typ: typ.clone() }))
+                    ForeignObject { typ: typ.clone() }) })
         } else {
             Err(())
         }
