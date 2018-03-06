@@ -20,8 +20,9 @@ impl Arg for ReqArg {
     fn get_type(&self) -> &syn::TypePath { &self.typ }
 
     fn get_conv(&self) -> Tokens {
+        let name = self.get_name();
         quote!(
-            Scm::<Untyped>::from_raw(n).into_type().unwrap();
+            Scm::<Untyped>::from_raw(#name).into_type().unwrap();
         )
     }
 }
